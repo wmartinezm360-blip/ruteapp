@@ -12,7 +12,9 @@ import {
   Smile, 
   TrendingUp, 
   BarChart2, 
-  Plus 
+  Plus,
+  HeartHandshake,
+  BookOpen
 } from 'lucide-react';
 import { getGoals, getActivityLogs, addActivityLog, deleteActivityLog, getMoodLogs, saveMoodLog } from '../../lib/firestoreService';
 import { auth } from '../../lib/firebase';
@@ -35,7 +37,7 @@ interface DailyMotivation {
 
 interface TodayViewProps {
   onNavigateToChat?: () => void;
-  onNavigateToMood?: () => void;
+  onNavigateToMood?: (tab?: 'charts' | 'patterns' | 'support' | 'history') => void;
 }
 
 export default function TodayView({ onNavigateToChat, onNavigateToMood }: TodayViewProps) {
@@ -274,7 +276,7 @@ export default function TodayView({ onNavigateToChat, onNavigateToMood }: TodayV
           </div>
           {onNavigateToMood && (
             <button
-              onClick={onNavigateToMood}
+              onClick={() => onNavigateToMood('charts')}
               className="text-xs font-semibold text-stone-600 hover:text-stone-900 flex items-center gap-1 transition-colors"
             >
               <BarChart2 className="w-3.5 h-3.5 text-amber-600" />
@@ -326,7 +328,7 @@ export default function TodayView({ onNavigateToChat, onNavigateToMood }: TodayV
 
             {onNavigateToMood && (
               <button
-                onClick={onNavigateToMood}
+                onClick={() => onNavigateToMood('charts')}
                 className="text-stone-600 hover:text-stone-900 underline font-medium text-2xs"
               >
                 Editar etiquetas y detonantes
@@ -335,6 +337,39 @@ export default function TodayView({ onNavigateToChat, onNavigateToMood }: TodayV
           </div>
         )}
       </div>
+
+      {/* Low Mood Social Intelligence Support Alert */}
+      {todayMood && todayMood.score <= 2 && (
+        <div className="p-4 rounded-2xl bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0 text-amber-800">
+              <HeartHandshake className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="font-bold text-amber-950 text-xs">
+                  Acompañamiento con Inteligencia Social
+                </p>
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 text-3xs font-semibold uppercase">
+                  Ánimo Bajo ({todayMood.score}/5)
+                </span>
+              </div>
+              <p className="text-amber-900/90 text-2xs mt-0.5 leading-relaxed">
+                El desánimo tiende a inducir aislamiento y autojuicio. Hemos preparado consejos prácticos de conexión relacional, lecturas reseñadas y videos de YouTube para acompañarte.
+              </p>
+            </div>
+          </div>
+          {onNavigateToMood && (
+            <button
+              onClick={() => onNavigateToMood('support')}
+              className="px-3.5 py-2 bg-amber-700 hover:bg-amber-800 text-white font-semibold rounded-xl text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 shadow-2xs transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Ver Consejos y Recursos</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Automatic Daily Motivational Card */}
       <div className="p-5 rounded-2xl bg-linear-to-br from-stone-900 via-stone-850 to-stone-900 text-white shadow-md relative overflow-hidden border border-stone-800">

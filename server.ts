@@ -726,6 +726,178 @@ Devuelve un JSON con exactamente:
   }
 });
 
+// API route: Social Intelligence & Mood Analysis Guidance
+app.post('/api/mood-guidance', async (req, res) => {
+  const { uid: sessionUid, status } = await getAuthenticatedUser(req);
+  if (!sessionUid) return res.status(401).json({ error: 'Unauthorized' });
+  if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
+
+  const { logs, todayMood, summary } = req.body;
+
+  try {
+    const ai = new GoogleGenAI({ 
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    const systemInstruction = `Eres el Especialista en Inteligencia Social y Acompañamiento Emocional de la aplicación 'Ruta'.
+Tu propósito es analizar el estado de ánimo y los patrones de bajas anímicas persistentes del usuario y ofrecer:
+1. Contención y validación empática desde la INTELIGENCIA SOCIAL (comprendiendo la relación entre tristeza, aislamiento defensivo, rumiación mental y la biología de los vínculos afectivos).
+2. Refuerzo de consejos prácticos y accionables de Inteligencia Social para superar la sensación de ser una carga, restablecer micro-conexiones seguras y cuidar la batería relacional.
+3. Reseña de una lectura terapéutica de alto valor aplicable a sus detonantes específicos.
+4. Reseña y recomendación de un video o conferencia de YouTube relevante (de oradores reconocidos como Brené Brown, Marian Rojas Estapé, David D. Burns, Andrew Huberman o Eckhart Tolle).
+5. Una micro-acción de 2 minutos para hoy.
+
+NORMAS OBLIGATORIAS:
+- INTELIGENCIA SOCIAL: Enfócate en cómo los vínculos, la autocompasión y la comunicación honesta regulan el sistema nervioso. Evita el positivismo tóxico ("¡ánimo, sonríe!"). Valida la emoción con respeto.
+- LÍMITES CLÍNICOS ESTRICTOS: NUNCA diagnostiques ni etiquetes trastornos clínicos (depresión clínica, bipolaridad, patologías).
+- RELEVANCIA: Conecta los consejos directamente con los detonantes reales del usuario (sueño, trabajo, relaciones, etc.).
+
+Devuelve un JSON estructurado con:
+- "empathicAnalysis": análisis cálido y lúcido del momento anímico y detonantes observados (2 a 3 oraciones).
+- "socialIntelligenceInsight": reflexión profunda sobre la dinámica relacional o social del ánimo bajo persistente (ej. no aislarse, desarmar la culpa de pedir ayuda).
+- "keyAdvice": lista de 3 consejos prácticos específicos con "title", "description", y "actionableStep".
+- "bookRecommendation": objeto con "title", "author", "review", "whyItHelps", y "keyExercise".
+- "videoRecommendation": objeto con "title", "speaker", "channel", "review", "youtubeSearchQuery", y "keyTakeaway".
+- "immediateAction": una micro-acción de 2 minutos realizable hoy.`;
+
+    const userPrompt = `Analiza los siguientes datos anímicos recientes del usuario:
+- Registro de Hoy: ${JSON.stringify(todayMood || 'No registrado aún hoy')}
+- Resumen de métricas y detonantes: ${JSON.stringify(summary || {})}
+- Registros recientes (últimos días): ${JSON.stringify((logs || []).slice(0, 10))}
+
+Genera el acompañamiento y recomendaciones con inteligencia social para afrontar y remontar las bajas de ánimo persistentes.`;
+
+    let response;
+    let attempts = 0;
+    const maxRetries = 2;
+    const delay = 800;
+
+    while (true) {
+      try {
+        const modelName = attempts === 0 ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+        const modelConfig: any = {
+          systemInstruction,
+          temperature: 0.6,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              empathicAnalysis: { type: Type.STRING },
+              socialIntelligenceInsight: { type: Type.STRING },
+              keyAdvice: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    actionableStep: { type: Type.STRING }
+                  },
+                  required: ["title", "description", "actionableStep"]
+                }
+              },
+              bookRecommendation: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  author: { type: Type.STRING },
+                  review: { type: Type.STRING },
+                  whyItHelps: { type: Type.STRING },
+                  keyExercise: { type: Type.STRING }
+                },
+                required: ["title", "author", "review", "whyItHelps", "keyExercise"]
+              },
+              videoRecommendation: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  speaker: { type: Type.STRING },
+                  channel: { type: Type.STRING },
+                  review: { type: Type.STRING },
+                  youtubeSearchQuery: { type: Type.STRING },
+                  keyTakeaway: { type: Type.STRING }
+                },
+                required: ["title", "speaker", "channel", "review", "youtubeSearchQuery", "keyTakeaway"]
+              },
+              immediateAction: { type: Type.STRING }
+            },
+            required: [
+              "empathicAnalysis", 
+              "socialIntelligenceInsight", 
+              "keyAdvice", 
+              "bookRecommendation", 
+              "videoRecommendation", 
+              "immediateAction"
+            ]
+          }
+        };
+
+        if (modelName === 'gemini-3.8-flash') {
+          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+        }
+
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          config: modelConfig
+        });
+        break;
+      } catch (err: any) {
+        attempts++;
+        if (attempts < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay * attempts));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    const output = JSON.parse(response.text || '{}');
+    res.json(output);
+  } catch (err: any) {
+    console.error('Mood guidance error:', err);
+    // Graceful fallback with rich social intelligence content
+    res.json({
+      empathicAnalysis: "Identificamos que estás transitando por días con niveles de energía o ánimo más bajos. Atravesar momentos de pesadez es una experiencia compartida por todo ser humano, y el primer paso es no juzgarte por sentirte así.",
+      socialIntelligenceInsight: "Cuando el ánimo decae de manera persistente, el cerebro suele ordenar un repliegue instintivo creyendo erróneamente que 'molestamos' o que 'nadie nos entiende'. La inteligencia social nos enseña que el aislamiento agudiza la rumiación: conectar en micro-dosis con una persona segura restaura la oxitocina y regula el sistema nervioso.",
+      keyAdvice: [
+        {
+          title: "La Regla de la Micro-Conexión Segura",
+          description: "No necesitas sostener largas conversaciones. Un saludo breve a alguien confiable rompe el aislamiento defensivo sin agotar tu batería.",
+          actionableStep: "Envía un mensaje de 1 línea a un amigo o familiar: 'Paso a saludarte, hoy ando con poca energía pero quería saber cómo estás'."
+        },
+        {
+          title: "Desarmar la Falacia de 'Ser una Carga'",
+          description: "Pensar que tus emociones molestarán a los demás es una distorsión común en el desánimo. Permitir que otros te escuchen fomenta la confianza mutua.",
+          actionableStep: "Recuerda cómo te sientes tú cuando un amigo confía en ti para contarte un mal día: no te molesta, te sientes cercano."
+        },
+        {
+          title: "Pausar la Sobreexigencia Social",
+          description: "Aprende a decir 'no' a compromisos que consuman la poca energía que te queda, comunicándolo con afecto y serenidad.",
+          actionableStep: "Pospón reuniones accesorias diciendo con calma que necesitas unas horas para descansar."
+        }
+      ],
+      bookRecommendation: {
+        title: "Sentirse Bien: Una nueva terapia contra las depresiones",
+        author: "Dr. David D. Burns",
+        review: "Obra de referencia de la terapia cognitiva. Enseña a desenmascarar los pensamientos automáticos que distorsionan la realidad y hunden el ánimo.",
+        whyItHelps: "Desactiva la culpa de 'no estar al 100%' y brinda herramientas estructuradas de lápiz y papel.",
+        keyExercise: "Técnica de la triple columna: escribe el pensamiento que te desanima, identifica la distorsión y anota una respuesta compasiva y realista."
+      },
+      videoRecommendation: {
+        title: "El poder de la vulnerabilidad",
+        speaker: "Brené Brown",
+        channel: "TED Talks",
+        review: "Explica con calidez científica por qué mostrarnos vulnerables no es una debilidad, sino la clave de la conexión humana y la sanación emocional.",
+        youtubeSearchQuery: "Brene Brown El poder de la vulnerabilidad TED",
+        keyTakeaway: "Aceptar nuestras imperfecciones y pedir compañía disuelve la vergüenza y alivia el peso de los días difíciles."
+      },
+      immediateAction: "Toma un vaso de agua, pon una mano sobre tu pecho respirando tres veces profundo y dite a ti mismo: 'Este es un momento difícil, pero voy a cuidarme paso a paso'."
+    });
+  }
+});
+
 // Helper for JWT authentication and status check
 async function getAuthenticatedUser(req: any): Promise<{ uid: string | null, status: string | null, isAdmin: boolean }> {
   const authHeader = req.headers.authorization;

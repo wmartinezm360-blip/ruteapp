@@ -95,6 +95,7 @@ export interface TodayMoodInfo {
   emotions?: string[];
   triggers?: string[];
   notes?: string;
+  isPersistentLowMood?: boolean;
 }
 
 export function buildMotivationalContext(options: {
@@ -103,8 +104,9 @@ export function buildMotivationalContext(options: {
   completedGoalIds: string[];
   streakDays?: number;
   todayMood?: TodayMoodInfo | null;
+  isPersistentLowMood?: boolean;
 }): string {
-  const { profileAnswers, goals, completedGoalIds, streakDays = 0, todayMood } = options;
+  const { profileAnswers, goals, completedGoalIds, streakDays = 0, todayMood, isPersistentLowMood } = options;
 
   const profileText = formatProfileSummary(profileAnswers);
   const now = new Date();
@@ -129,6 +131,8 @@ ${pendingGoals.length > 0 ? `Metas pendientes para hoy:\n${pendingGoals.map(g =>
 Racha de días activos: ${streakDays} ${streakDays === 1 ? 'día' : 'días'}.`;
   }
 
+  const isLow = (todayMood && todayMood.score <= 2) || isPersistentLowMood || (todayMood && todayMood.isPersistentLowMood);
+
   let moodText = 'El usuario no ha registrado aún su estado de ánimo hoy.';
   if (todayMood) {
     moodText = `ESTADO DE ÁNIMO REGISTRADO HOY (Escala 1 a 5):
@@ -136,7 +140,22 @@ Puntaje de ánimo: ${todayMood.score}/5 (${todayMood.label || 'registrado'})
 Nivel de energía: ${todayMood.energyScore ? `${todayMood.energyScore}/5` : 'no especificado'}
 ${todayMood.emotions && todayMood.emotions.length > 0 ? `Emociones sentidas: ${todayMood.emotions.join(', ')}` : ''}
 ${todayMood.triggers && todayMood.triggers.length > 0 ? `Detonantes/Factores influyentes: ${todayMood.triggers.join(', ')}` : ''}
-${todayMood.notes ? `Nota personal: "${todayMood.notes}"` : ''}`;
+${todayMood.notes ? `Nota personal: "${todayMood.notes}"` : ''}
+${isLow ? '>> DETECCIÓN ACTIVA: El estado de ánimo es bajo (1 o 2 sobre 5) o hay persistencia de fatiga/desánimo.' : ''}`;
+  }
+
+  let lowMoodSpecialDirectives = '';
+  if (isLow) {
+    lowMoodSpecialDirectives = `
+🚨 PROTOCOLO ESPECIAL DE INTELIGENCIA SOCIAL Y ÁNIMO BAJO:
+1. VALIDACIÓN EMPÁTICA Y NO INVALIDACIÓN: El usuario está experimentando un estado de ánimo bajo o persistente. Trátalo con máxima ternura, sin positivismo tóxico ni clichés ("¡sonríe!"). Reconoce que los días difíciles son parte de la condición humana.
+2. APLICACIÓN DE INTELIGENCIA SOCIAL:
+   - Desactiva el impulso de aislamiento defensivo: explícale que cuando el ánimo cae, el cerebro erróneamente cree que "somos una carga" o que "nadie nos entiende".
+   - Refuerza la importancia de las micro-conexiones seguras (un mensaje breve a alguien confiable) y de poner límites saludables si el detonante es el agotamiento social o laboral.
+3. REFUERZO DE CONSEJOS Y RESEÑA DE LECTURAS O VIDEOS:
+   - Cuando sea oportuno o si el usuario busca orientación, reseña con criterio una lectura terapéutica de alto valor (como "Sentirse Bien" de David D. Burns para desmontar pensamientos destructivos, "Encuentra tu persona vitamina" de Marian Rojas Estapé para la neurociencia de los vínculos sanadores, o "Sé amable contigo mismo" de Kristin Neff para la autocompasión) o bien reseña una charla de YouTube (como Brené Brown sobre la vulnerabilidad y la conexión humana, o Marian Rojas Estapé sobre cómo salir del bucle del cortisol y la tristeza).
+   - Explica brevemente de qué trata la lectura o video y por qué su mensaje aplica con precisión a su situación de hoy.
+4. MICRO-ACCIÓN DE BAJA DEMANDA: No le exijas grandes tareas. Si tiene metas pendientes, sugiérele pausarlas o cumplir una micro-versión de 1 o 2 minutos sin culpa.`;
   }
 
   return `FECHA Y HORA ACTUAL:
@@ -150,10 +169,11 @@ ${moodText}
 
 ESTADO DE SUS METAS REALES:
 ${goalsText}
+${lowMoodSpecialDirectives}
 
-DIRECTRICES PARA LA RESPUESTA:
-1. RESPONDE DIRECTAMENTE AL CONTEXTO REAL: Menciona sus metas reales por su nombre específico cuando sea oportuno. NUNCA menciones metas ficticias (como hábitos de lectura si esa no es su meta).
-2. TOMA EN CUENTA SU ESTADO DE ÁNIMO: Si su ánimo está bajo (1 o 2), muestra calidez y comprensión sin juzgar; si está alto (4 o 5), valida su vitalidad y aprovecha el impulso positivo.
+DIRECTRICES GENERALES PARA LA RESPUESTA:
+1. RESPONDE DIRECTAMENTE AL CONTEXTO REAL: Menciona sus metas reales por su nombre específico cuando sea oportuno. NUNCA menciones metas ficticias.
+2. TOMA EN CUENTA SU ESTADO DE ÁNIMO: Si su ánimo está bajo (1 o 2), prioriza el protocolo de inteligencia social anterior; si está alto (4 o 5), celebra su vitalidad.
 3. ADAPTA EL TONO A SU PERFIL: Si el usuario prefiere pasos pequeños, sugiérele micro-acciones; si prefiere visión global, recuérdale el propósito amplio; si es mañanero/nocturno, ten en cuenta su ritmo.
-4. Si el usuario ya completó metas hoy, valida su esfuerzo; si tiene metas pendientes, ofrécele un impulso positivo y no punitivo.`;
+4. Si el usuario ya completó metas hoy, valida su esfuerzo; si tiene metas pendientes, ofrécele un impulso compasivo y no punitivo.`;
 }

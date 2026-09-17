@@ -9,6 +9,12 @@ import PanicButton from './PanicButton';
 
 export default function Dashboard() {
   const [view, setView] = useState<'today' | 'mood' | 'progress' | 'goals' | 'chat' | 'settings'>('today');
+  const [moodTab, setMoodTab] = useState<'charts' | 'patterns' | 'support' | 'history'>('charts');
+
+  const handleNavigateToMood = (tab?: 'charts' | 'patterns' | 'support' | 'history') => {
+    if (tab) setMoodTab(tab);
+    setView('mood');
+  };
 
   const buttonClass = (v: string) => 
     `px-4 py-2 rounded-lg transition-colors ${view === v ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`;
@@ -17,10 +23,10 @@ export default function Dashboard() {
     <div className="max-w-4xl mx-auto p-6 relative">
       <PanicButton />
       <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-6 text-stone-900">Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-6 text-stone-900">Mantén la Ruta</h1>
         <nav className="flex flex-wrap gap-3">
           <button className={buttonClass('today')} onClick={() => setView('today')}>Hoy</button>
-          <button className={buttonClass('mood')} onClick={() => setView('mood')}>Estado de Ánimo</button>
+          <button className={buttonClass('mood')} onClick={() => { setMoodTab('charts'); setView('mood'); }}>Estado de Ánimo</button>
           <button className={buttonClass('progress')} onClick={() => setView('progress')}>Progreso</button>
           <button className={buttonClass('goals')} onClick={() => setView('goals')}>Mis Metas</button>
           <button className={buttonClass('chat')} onClick={() => setView('chat')}>Asistente</button>
@@ -32,10 +38,10 @@ export default function Dashboard() {
         {view === 'today' && (
           <TodayView 
             onNavigateToChat={() => setView('chat')} 
-            onNavigateToMood={() => setView('mood')}
+            onNavigateToMood={handleNavigateToMood}
           />
         )}
-        {view === 'mood' && <MoodTrackerView />}
+        {view === 'mood' && <MoodTrackerView initialTab={moodTab} />}
         {view === 'progress' && <ProgressView />}
         {view === 'goals' && <GoalsView />}
         {view === 'chat' && <ChatView />}

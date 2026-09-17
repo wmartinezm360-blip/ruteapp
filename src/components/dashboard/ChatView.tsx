@@ -86,7 +86,10 @@ export default function ChatView() {
       // Build initial proactive greeting message if no messages yet
       if (messages.length === 0) {
         let initialGreeting = '¡Hola! Qué gusto saludarte. ';
-        if (goalsList.length > 0) {
+        if (foundMood && foundMood.score <= 2) {
+          const triggerText = foundMood.triggers && foundMood.triggers.length > 0 ? ` (detonantes: ${foundMood.triggers.join(', ')})` : '';
+          initialGreeting = `Hola. Veo que hoy registraste un nivel de ánimo bajo (${foundMood.score}/5${triggerText}). Recuerda que el desánimo no se supera forzándote ni aislándote; la inteligencia social nos recuerda que la vulnerabilidad compartida y el descanso son válidos. Puedo orientarte con lecturas recomendadas, videos de YouTube o micro-pasos para aliviar la carga hoy. ¿Cómo te sientes en este momento?`;
+        } else if (goalsList.length > 0) {
           const completedCount = completedIds.filter(id => goalsList.some(g => g.id === id)).length;
           if (completedCount === goalsList.length) {
             initialGreeting += `¡Felicidades! Veo que has completado todas tus metas de hoy (${goalsList.map(g => `"${g.text}"`).join(', ')}). ¿Cómo te sientes con este logro?`;

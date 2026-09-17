@@ -21,7 +21,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   HelpCircle,
-  Lightbulb
+  Lightbulb,
+  HeartHandshake,
+  BookOpen
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -39,6 +41,7 @@ import {
 import { MoodLog } from '../../types';
 import { getMoodLogs, saveMoodLog, deleteMoodLog } from '../../lib/firestoreService';
 import { auth } from '../../lib/firebase';
+import MoodSupportGuidanceSection from './MoodSupportGuidanceSection';
 
 // Escalas de Ánimo predefinidas (1 a 5)
 export const MOOD_SCALES = [
@@ -136,14 +139,21 @@ export const DEFAULT_TRIGGERS = [
 
 interface MoodTrackerViewProps {
   onCheckinComplete?: () => void;
+  initialTab?: 'charts' | 'patterns' | 'support' | 'history';
 }
 
-export default function MoodTrackerView({ onCheckinComplete }: MoodTrackerViewProps) {
+export default function MoodTrackerView({ onCheckinComplete, initialTab }: MoodTrackerViewProps) {
   const [logs, setLogs] = useState<MoodLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [filterRange, setFilterRange] = useState<'7d' | '14d' | '30d' | 'all'>('14d');
-  const [activeTab, setActiveTab] = useState<'charts' | 'patterns' | 'history'>('charts');
+  const [activeTab, setActiveTab] = useState<'charts' | 'patterns' | 'support' | 'history'>(initialTab || 'charts');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Form State
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -470,6 +480,15 @@ export default function MoodTrackerView({ onCheckinComplete }: MoodTrackerViewPr
     };
   }, [filteredLogs, triggerImpactData, overallAvgMood, overallAvgEnergy]);
 
+  // Detection of Low Mood or Persistent Low Mood (for Social Intelligence & Resource Hub)
+  const isLowMoodDetected = useMemo(() => {
+    if (todayLog && todayLog.score <= 2) return true;
+    const recentLowCount = filteredLogs.filter(l => l.score <= 2).length;
+    if (recentLowCount >= 2) return true;
+    if (filteredLogs.length >= 3 && overallAvgMood <= 2.6) return true;
+    return false;
+  }, [todayLog, filteredLogs, overallAvgMood]);
+
   // Custom Recharts Tooltip for Time Series
   const CustomTimeSeriesTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -660,7 +679,7 @@ export default function MoodTrackerView({ onCheckinComplete }: MoodTrackerViewPr
 
       {/* Tabs & Range Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-2">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveTab('charts')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
@@ -676,6 +695,24 @@ export default function MoodTrackerView({ onCheckinComplete }: MoodTrackerViewPr
             }`}
           >
             Patrones y Hallazgos
+          </button>
+          <button
+            onClick={() => setActiveTab('support')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              activeTab === 'support' 
+                ? 'bg-amber-600 text-white shadow-xs' 
+                : isLowMoodDetected 
+                  ? 'bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300' 
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            <HeartHandshake className="w-3.5 h-3.5" />
+            <span>Apoyo y Recursos</span>
+            {isLowMoodDetected && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-3xs font-bold uppercase tracking-wider">
+                Atención
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('history')}
@@ -704,6 +741,40 @@ export default function MoodTrackerView({ onCheckinComplete }: MoodTrackerViewPr
           ))}
         </div>
       </div>
+
+      {/* Empathetic Notification Banner when low mood is detected and not on support tab */}
+      {isLowMoodDetected && activeTab !== 'support' && (
+        <div className="p-4 rounded-2xl bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
+              <HeartHandshake className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                  Acompañamiento ante Bajas de Ánimo Detectadas
+                </h4>
+                <span className="px-2 py-0.2 rounded-full bg-amber-200 text-amber-900 text-2xs font-semibold">
+                  Inteligencia Social
+                </span>
+              </div>
+              <p className="text-xs text-amber-900/90 mt-0.5 leading-relaxed">
+                {todayLog && todayLog.score <= 2 
+                  ? `Tu registro de hoy (${todayLog.score}/5) indica un momento difícil. El desánimo no se supera en soledad forzada.`
+                  : 'Hemos detectado varios registros recientes con ánimo bajo o fatiga persistente en este período.'}
+                {' '}Te sugerimos revisar la sección de Apoyo con consejos prácticos de Inteligencia Social, lecturas terapéuticas y conferencias de YouTube.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('support')}
+            className="px-3.5 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 self-start sm:self-auto shadow-xs transition-colors"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Ver Consejos y Recursos</span>
+          </button>
+        </div>
+      )}
 
       {/* VIEW: CHARTS */}
       {activeTab === 'charts' && (
@@ -1123,6 +1194,18 @@ export default function MoodTrackerView({ onCheckinComplete }: MoodTrackerViewPr
             </div>
           )}
         </div>
+      )}
+
+      {/* VIEW: SUPPORT & SOCIAL INTELLIGENCE RESOURCES */}
+      {activeTab === 'support' && (
+        <MoodSupportGuidanceSection
+          logs={filteredLogs}
+          todayLog={todayLog}
+          overallAvgMood={overallAvgMood}
+          overallAvgEnergy={overallAvgEnergy}
+          insights={insights}
+          isLowMoodDetected={isLowMoodDetected}
+        />
       )}
 
       {/* MODAL: CHECK-IN / REGISTRO DE ÁNIMO */}
