@@ -574,7 +574,7 @@ ${context || 'No hay contexto adicional.'}`;
     ];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3.5-flash',
       contents: contents,
       config: {
         systemInstruction,
