@@ -12,7 +12,7 @@ import { getAuth } from 'firebase-admin/auth';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Resend } from 'resend';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 
 // Lazy initialization for Firebase Admin
 let adminApp: App | null = null;
@@ -573,23 +573,57 @@ ${context || 'No hay contexto adicional.'}`;
       { role: 'user', parts: [{ text: message }] }
     ];
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: contents,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            text: { type: Type.STRING, description: "La respuesta conversacional para el usuario." },
-            risk_flag: { type: Type.BOOLEAN, description: "True si se detecta riesgo según las categorías A-G." }
-          },
-          required: ["text", "risk_flag"]
+    let response;
+    let attempts = 0;
+    const maxRetries = 2;
+    let delay = 800;
+
+    // Use fast gemini-3.1-flash-lite for near-instant (1s) responses without deep thinking delay
+    while (true) {
+      try {
+        const modelName = attempts === 0 ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+        const modelConfig: any = {
+          systemInstruction,
+          temperature: 0.7,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              text: { type: Type.STRING, description: "La respuesta conversacional para el usuario." },
+              risk_flag: { type: Type.BOOLEAN, description: "True si se detecta riesgo según las categorías A-G." }
+            },
+            required: ["text", "risk_flag"]
+          }
+        };
+
+        if (modelName === 'gemini-3.8-flash') {
+          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
         }
+
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: contents,
+          config: modelConfig
+        });
+        break;
+      } catch (err: any) {
+        attempts++;
+        const isTransient = err.status === 503 || err.status === 429 || 
+                            (err.message && (err.message.includes('503') || 
+                             err.message.includes('UNAVAILABLE') || 
+                             err.message.includes('high demand') || 
+                             err.message.includes('temporary')));
+        
+        if (isTransient && attempts < maxRetries) {
+          const jitter = Math.random() * 200;
+          const currentDelay = delay * Math.pow(2, attempts) + jitter;
+          console.warn(`Gemini API returned transient error. Retrying in ${Math.round(currentDelay)}ms (Attempt ${attempts}/${maxRetries}):`, err.message || err);
+          await new Promise(resolve => setTimeout(resolve, currentDelay));
+          continue;
+        }
+        throw err;
       }
-    });
+    }
 
     try {
       const output = JSON.parse(response.text || '{}');
@@ -597,32 +631,10 @@ ${context || 'No hay contexto adicional.'}`;
       res.json(output);
     } catch (parseErr) {
       console.error('Failed to parse Gemini JSON:', parseErr);
-      try {
-        const db = getFirebaseAdmin().firestore();
-        await db.collection('system_errors').add({
-          type: 'gemini_json_parse_error',
-          timestamp: Date.now(),
-          rawResponse: response.text,
-          userId: sessionUid
-        });
-      } catch (logErr) {
-        console.error('Failed to log system error in /api/chat parse JSON:', logErr);
-      }
       res.json({ text: "Lo siento, estoy teniendo un problema técnico para procesar tu mensaje. Por favor, intenta de nuevo. Si necesitas ayuda inmediata o estás pasando por una crisis, por favor utiliza el botón de asistencia y recursos de emergencia (icono de salvavidas) visible en la parte superior de la interfaz.", risk_flag: false });
     }
   } catch (err: any) {
     console.error('Chat error:', err);
-    try {
-      const db = getFirebaseAdmin().firestore();
-      await db.collection('system_errors').add({
-        type: 'gemini_api_error',
-        timestamp: Date.now(),
-        errorMsg: err.message || 'Unknown error',
-        userId: sessionUid
-      });
-    } catch (dbErr) {
-      console.error('Failed to log system error:', dbErr);
-    }
     res.json({ text: "Lo siento, estoy teniendo un problema técnico en este momento. Por favor, intenta de nuevo más tarde. Si necesitas ayuda inmediata o estás pasando por una crisis, por favor utiliza el botón de asistencia y recursos de emergencia (icono de salvavidas) visible en la parte superior de la interfaz.", risk_flag: false });
   }
 });

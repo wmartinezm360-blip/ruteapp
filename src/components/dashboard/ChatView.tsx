@@ -40,8 +40,12 @@ export default function ChatView() {
         throw new Error('Usuario no autenticado.');
       }
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
       const response = await fetch('/api/chat', {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -52,6 +56,7 @@ export default function ChatView() {
           context: 'El usuario tiene 5 días de racha. Su meta principal es: "Hábito de Lectura".'
         })
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) throw new Error('Error al conectar con el asistente');
       
