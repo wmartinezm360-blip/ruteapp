@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { generateSalt } from './lib/encryption';
+import { getProfile, checkPinRecordExists } from './lib/firestoreService';
 import AuthScreen from './components/auth/AuthScreen';
 import PinScreen from './components/auth/PinScreen';
 import ResetPinScreen from './components/auth/ResetPinScreen';
@@ -21,6 +22,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [checkingProfile, setCheckingProfile] = useState(false);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [hasPinRecord, setHasPinRecord] = useState(false);
   const [pinVerified, setPinVerified] = useState(false);
   
   // States for new user onboarding PIN and salt generation
@@ -43,29 +45,24 @@ export default function App() {
       if (user) {
         setCheckingProfile(true);
         try {
-          // Check if encrypted profile payload exists via backend API endpoint
-          const token = await user.getIdToken();
-          const response = await fetch(`/api/get-profile?uid=${user.uid}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (response.ok) {
-            const profileData = await response.json();
-            const exists = Boolean(profileData?.encrypted_payload) && !profileData?.requiresOnboarding;
-            setHasProfile(exists);
-          } else {
-            setHasProfile(false);
-          }
+          // Check if encrypted profile payload exists and PIN record exists in Firestore
+          const [profileData, authRecordExists] = await Promise.all([
+            getProfile(),
+            checkPinRecordExists()
+          ]);
+          const exists = Boolean(profileData?.payload);
+          setHasProfile(exists);
+          setHasPinRecord(authRecordExists);
         } catch (error) {
-          console.error('Error verifying user profile via API:', error);
+          console.error('Error verifying user profile and PIN record via Firestore:', error);
           setHasProfile(false);
+          setHasPinRecord(false);
         } finally {
           setCheckingProfile(false);
         }
       } else {
         setHasProfile(null);
+        setHasPinRecord(false);
       }
       setAuthLoading(false);
     });
@@ -101,6 +98,20 @@ export default function App() {
   // 3. Authenticated State
   // Scenario A: Returning user with existing encrypted profile
   if (hasProfile) {
+    if (!hasPinRecord) {
+      // Self-healing: if profile exists but no PIN record exists, let user setup a PIN
+      return (
+        <PinScreen 
+          mode="setup" 
+          uid={currentUser.uid}
+          onSuccess={async (newPin) => {
+            setPinVerified(true);
+            setHasPinRecord(true);
+          }} 
+        />
+      );
+    }
+
     if (!pinVerified) {
       return (
         <PinScreen 

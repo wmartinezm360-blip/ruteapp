@@ -3,6 +3,7 @@ import { X, Download, FileText } from 'lucide-react';
 import { decryptUserProfile } from '../../lib/profile';
 import { generateReportPDF } from '../../lib/pdfReportGenerator';
 import { auth } from '../../lib/firebase';
+import { exportReportData } from '../../lib/firestoreService';
 
 interface ExportReportModalProps {
   isOpen: boolean;
@@ -51,37 +52,20 @@ export default function ExportReportModal({ isOpen, onClose, uid }: ExportReport
         throw new Error('PIN incorrecto. Por favor, intenta de nuevo.');
       }
 
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Usuario no autenticado.');
-
-      // 2. Obtener únicamente los registros no sensibles de telemetría y registrar auditoría
-      const response = await fetch('/api/export-report-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          periodStart: startTs,
-          periodEnd: endTs,
-          userConsentedToRiskEvents
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Error al obtener datos para el informe');
-      }
-
-      const { goals, activityLogs, riskEvents } = await response.json();
+      // 2. Obtener únicamente los registros no sensibles de telemetría y registrar auditoría directo de Firestore
+      const { goals, activityLogs, riskEvents } = await exportReportData(
+        startTs,
+        endTs,
+        userConsentedToRiskEvents
+      );
 
       // 3. Generar y descargar el PDF 100% en el cliente (Browser)
       generateReportPDF({
         periodStart: startTs,
         periodEnd: endTs,
-        goals: goals || [],
-        activityLogs: activityLogs || [],
-        riskEvents: riskEvents || [],
+        goals: (goals as any) || [],
+        activityLogs: (activityLogs as any) || [],
+        riskEvents: (riskEvents as any) || [],
         userConsentedToRiskEvents,
         onboardingAnswers: profileAnswers
       });

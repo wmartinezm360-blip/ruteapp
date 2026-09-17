@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Trash2, AlertTriangle, FileText } from 'lucide-react';
 import ExportReportModal from './ExportReportModal';
 import { auth } from '../../lib/firebase';
+import { getUserStatus, requestDeletion, cancelDeletion } from '../../lib/firestoreService';
 
 export default function SettingsView() {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -17,16 +18,13 @@ export default function SettingsView() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const token = await auth.currentUser?.getIdToken();
         const uid = currentUid;
-        if (!token || !uid) {
+        if (!uid) {
           setIsInitialLoading(false);
           return;
         }
-        const res = await fetch(`/api/get-profile?uid=${uid}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.status === 403) {
+        const status = await getUserStatus();
+        if (status === 'pending_deletion') {
           setIsPendingDeletion(true);
         }
       } catch (e) {}
@@ -48,20 +46,7 @@ export default function SettingsView() {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Usuario no autenticado.');
-
-      const response = await fetch('/api/user/cancel-deletion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al cancelar la eliminación');
-      }
+      await cancelDeletion();
       setSuccessMsg('Se ha cancelado la eliminación. Tu cuenta vuelve a estar activa.');
       setIsPendingDeletion(false);
     } catch (err: any) {
@@ -75,22 +60,7 @@ export default function SettingsView() {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Usuario no autenticado.');
-
-      const response = await fetch('/api/user/request-deletion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al solicitar la eliminación');
-      }
-
+      await requestDeletion();
       setSuccessMsg('Tu cuenta ha sido programada para eliminación en 14 días. Ya no podrás iniciar sesión. Si deseas cancelarlo, contacta a soporte.');
       setShowConfirm(false);
     } catch (err: any) {

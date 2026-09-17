@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Questionnaire from './Questionnaire';
 import { deriveKey, encryptData, generateDEK, wrapDEK } from '../../lib/encryption';
-import { auth } from '../../lib/firebase';
+import { saveProfile } from '../../lib/firestoreService';
 
 interface OnboardingFlowProps {
   pin: string;
@@ -12,6 +12,7 @@ interface OnboardingFlowProps {
 
 export default function OnboardingFlow({ pin, salt, uid, onComplete }: OnboardingFlowProps) {
   const [status, setStatus] = useState<'idle' | 'encrypting' | 'uploading' | 'complete' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleComplete = async (answers: Record<number, string>) => {
     setStatus('encrypting');
@@ -37,37 +38,39 @@ export default function OnboardingFlow({ pin, salt, uid, onComplete }: Onboardin
 
       setStatus('uploading');
       
-      // 6. Enviar datos al servidor
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Usuario no autenticado.');
-
-      const response = await fetch('/api/save-profile', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          uid,
-          payload: payloadBase64,
-          iv: ivBase64,
-          wrappedKey: wrappedKeyBase64,
-          dekIv: dekIvBase64,
-          salt: btoa(String.fromCharCode(...salt))
-        })
+      // 6. Enviar datos al servidor directo de Firestore (Client SDK)
+      await saveProfile({
+        payload: payloadBase64,
+        iv: ivBase64,
+        wrappedKey: wrappedKeyBase64,
+        dekIv: dekIvBase64,
+        salt: btoa(String.fromCharCode(...salt))
       });
 
-      if (!response.ok) throw new Error('Failed to save profile');
       setStatus('complete');
       onComplete();
       
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setErrorMsg(err.message || 'Error en el proceso.');
       setStatus('error');
     }
   };
 
-  if (status === 'error') return <div className="p-10 text-center text-red-500">Error en el proceso.</div>;
+  if (status === 'error') {
+    return (
+      <div className="p-10 text-center">
+        <p className="font-semibold text-lg text-red-600">Error al guardar el perfil:</p>
+        <p className="text-sm mt-2 bg-red-50 text-red-800 p-3 rounded-lg border border-red-100 max-w-md mx-auto inline-block">{errorMsg}</p>
+        <button 
+          onClick={() => setStatus('idle')}
+          className="mt-4 block mx-auto px-4 py-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 text-sm transition-colors font-medium"
+        >
+          Intentar de nuevo
+        </button>
+      </div>
+    );
+  }
   if (status === 'encrypting' || status === 'uploading') return <div className="p-10 text-center">Procesando de forma segura...</div>;
 
   return <Questionnaire onComplete={handleComplete} />;

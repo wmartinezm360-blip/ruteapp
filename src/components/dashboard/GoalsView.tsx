@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import { auth } from '../../lib/firebase';
+import { getGoals, createGoal } from '../../lib/firestoreService';
 
 export type GoalType = 'habito' | 'pequena' | 'mediana' | 'grande';
 
@@ -24,16 +24,8 @@ export default function GoalsView() {
 
   const fetchGoals = useCallback(async () => {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
-
-      const res = await fetch('/api/goals', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setGoals(data.goals || []);
-      }
+      const data = await getGoals();
+      setGoals(data as Goal[] || []);
     } catch (err) {
       console.error('Error fetching goals:', err);
     } finally {
@@ -49,27 +41,13 @@ export default function GoalsView() {
     if (!newGoalText.trim()) return;
     setIsSubmitting(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
-
-      const res = await fetch('/api/goals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          text: newGoalText.trim(),
-          type: newGoalType,
-          parentId: newGoalParentId || null
-        })
-      });
-
-      if (res.ok) {
-        const addedGoal = await res.json();
-        setGoals(prev => [...prev, addedGoal]);
-        setNewGoalText('');
-      }
+      const addedGoal = await createGoal(
+        newGoalText.trim(),
+        newGoalType,
+        newGoalParentId || null
+      );
+      setGoals(prev => [...prev, addedGoal as any]);
+      setNewGoalText('');
     } catch (err) {
       console.error('Error adding goal:', err);
     } finally {

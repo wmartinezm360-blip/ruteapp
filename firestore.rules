@@ -1,8 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Global safety catch-all
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Standard helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // 1. User Profiles: Isolated by UID
+    match /user_profile_data/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // 2. Goals: User-owned records
+    match /goals/{goalId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // 3. Activity Logs: User-owned records
+    match /activity_logs/{logId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // 4. Risk Events: User-owned records
+    match /risk_events/{eventId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if isSignedIn() && (resource == null || resource.data.uid == request.auth.uid);
+    }
+
+    // 5. Crisis Resources: Read-only for all signed-in users
+    match /crisis_resources/{countryId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // 6. Users collection
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // 6.5. PIN Authentication Records
+    match /user_auth_records/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+    
+    // 7. Rate limits
+    match /rate_limits/{limitId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 8. Report exports
+    match /report_exports/{exportId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
   }
 }

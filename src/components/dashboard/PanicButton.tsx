@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LifeBuoy, X, Phone, Globe, ExternalLink } from 'lucide-react';
 import { auth } from '../../lib/firebase';
+import { getCrisisResources, logRiskEvent } from '../../lib/firestoreService';
 
 // ATENCIÓN ADMINISTRADOR / DESARROLLADOR:
 // FALLBACK_RESOURCES es un respaldo estático de último recurso.
@@ -53,23 +54,8 @@ export default function PanicButton() {
     // Fetch resources ahead of time so they are ready if needed (post-login)
     const fetchResources = async () => {
       try {
-        const token = await auth.currentUser?.getIdToken();
-        if (!token) {
-          setResources(FALLBACK_RESOURCES);
-          return;
-        }
-
-        const res = await fetch('/api/crisis-resources?country=CO', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setResources(data);
-        } else {
-          setResources(FALLBACK_RESOURCES);
-        }
+        const data = await getCrisisResources('CO');
+        setResources(data);
       } catch (e) {
         console.error('Error fetching crisis resources', e);
         setResources(FALLBACK_RESOURCES);
@@ -87,17 +73,7 @@ export default function PanicButton() {
       setResources(FALLBACK_RESOURCES);
     }
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
-
-      await fetch('/api/internal/log-risk-event', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ userId: uid, trigger: triggerType, timestamp: Date.now() })
-      });
+      await logRiskEvent(triggerType);
     } catch (e) {
       console.error('Error logging risk event', e);
     }

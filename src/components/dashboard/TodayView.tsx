@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { auth } from '../../lib/firebase';
+import { getGoals, getActivityLogs, addActivityLog, deleteActivityLog } from '../../lib/firestoreService';
 
 interface Goal {
   id: string;
@@ -16,31 +16,18 @@ export default function TodayView() {
 
   const fetchData = useCallback(async () => {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
-
-      const [goalsRes, logsRes] = await Promise.all([
-        fetch('/api/goals', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`/api/activity-logs?date=${todayStr}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+      const [goalsData, logsData] = await Promise.all([
+        getGoals(),
+        getActivityLogs(todayStr)
       ]);
 
-      if (goalsRes.ok) {
-        const { goals: goalsData } = await goalsRes.json();
-        setGoals(goalsData || []);
-      }
-
-      if (logsRes.ok) {
-        const { logs } = await logsRes.json();
-        const mapping: Record<string, string> = {};
-        (logs || []).forEach((log: any) => {
-          mapping[log.goalId] = log.id;
-        });
-        setCompletedGoalsMap(mapping);
-      }
+      setGoals((goalsData as any) || []);
+      
+      const mapping: Record<string, string> = {};
+      (logsData || []).forEach((log: any) => {
+        mapping[log.goalId] = log.id;
+      });
+      setCompletedGoalsMap(mapping);
     } catch (err) {
       console.error('Error fetching today data:', err);
     } finally {
@@ -54,8 +41,6 @@ export default function TodayView() {
 
   const handleToggleCompleted = async (goalId: string) => {
     const logDocId = completedGoalsMap[goalId];
-    const token = await auth.currentUser?.getIdToken();
-    if (!token) return;
     
     // Optimistic UI update
     if (logDocId) {
@@ -65,37 +50,16 @@ export default function TodayView() {
         return next;
       });
       try {
-        const res = await fetch(`/api/activity-logs/${logDocId}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) {
-          fetchData(); // Rollback on error
-        }
+        await deleteActivityLog(logDocId);
       } catch {
-        fetchData();
+        fetchData(); // Rollback on error
       }
     } else {
       const tempId = `temp_${Date.now()}`;
       setCompletedGoalsMap(prev => ({ ...prev, [goalId]: tempId }));
       try {
-        const res = await fetch('/api/activity-logs', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            goalId,
-            date: todayStr
-          })
-        });
-        if (res.ok) {
-          const newLog = await res.json();
-          setCompletedGoalsMap(prev => ({ ...prev, [goalId]: newLog.id }));
-        } else {
-          fetchData();
-        }
+        const newLog = await addActivityLog(goalId, todayStr);
+        setCompletedGoalsMap(prev => ({ ...prev, [goalId]: newLog.id }));
       } catch {
         fetchData();
       }

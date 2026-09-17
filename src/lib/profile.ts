@@ -1,5 +1,5 @@
 import { deriveKey, unwrapDEK, decryptData } from './encryption';
-import { auth } from './firebase';
+import { getProfile } from './firestoreService';
 
 const base64ToUint8 = (base64: string) => {
   const binary = atob(base64);
@@ -10,17 +10,10 @@ const base64ToUint8 = (base64: string) => {
 
 export async function decryptUserProfile(uid: string, pin: string) {
   try {
-    const token = await auth.currentUser?.getIdToken();
-    const response = await fetch(`/api/get-profile?uid=${uid}`, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    });
-    if (!response.ok) {
-        if (response.status === 403) throw new Error('Unauthorized');
-        throw new Error('Failed to fetch profile');
+    const data = await getProfile();
+    if (!data) {
+      throw new Error('Failed to fetch profile');
     }
-    const data = await response.json();
 
     const salt = base64ToUint8(data.salt);
     const kek = await deriveKey(pin, salt);
@@ -30,7 +23,7 @@ export async function decryptUserProfile(uid: string, pin: string) {
     const dek = await unwrapDEK(wrappedKey, kek, dekIv);
 
     const iv = base64ToUint8(data.iv);
-    const ciphertext = base64ToUint8(data.encrypted_payload).buffer;
+    const ciphertext = base64ToUint8(data.payload).buffer;
     const answersString = await decryptData(ciphertext, dek, iv);
 
     return JSON.parse(answersString);

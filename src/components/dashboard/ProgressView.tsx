@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { auth } from '../../lib/firebase';
+import { getGoals, getActivityLogs } from '../../lib/firestoreService';
 
 export default function ProgressView() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -10,27 +9,13 @@ export default function ProgressView() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = await auth.currentUser?.getIdToken();
-        if (!token) return;
-
-        const [logsRes, goalsRes] = await Promise.all([
-          fetch('/api/activity-logs', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch('/api/goals', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
+        const [logsData, goalsData] = await Promise.all([
+          getActivityLogs(),
+          getGoals()
         ]);
 
-        if (logsRes.ok) {
-          const logsData = await logsRes.json();
-          setLogs(logsData.logs || []);
-        }
-
-        if (goalsRes.ok) {
-          const goalsData = await goalsRes.json();
-          setGoals(goalsData.goals || []);
-        }
+        setLogs(logsData || []);
+        setGoals(goalsData || []);
       } catch (err) {
         console.error('Error fetching progress data:', err);
       } finally {

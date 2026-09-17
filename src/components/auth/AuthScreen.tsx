@@ -17,6 +17,12 @@ export default function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const formatAuthError = (errCode: string, defaultMsg: string): string => {
+    const code = errCode || '';
+    const msg = defaultMsg || '';
+    if (code === 'auth/unauthorized-domain' || msg.includes('auth/unauthorized-domain') || msg.includes('unauthorized-domain')) {
+      return `Dominio no autorizado para inicio de sesión con Google. Para solucionarlo, ve a tu Consola de Firebase (Authentication -> Ajustes -> Dominios Autorizados) y agrega este dominio: "${window.location.hostname}"`;
+    }
+
     switch (errCode) {
       case 'auth/invalid-credential':
       case 'auth/wrong-password':
@@ -30,6 +36,8 @@ export default function AuthScreen() {
         return 'El formato del correo electrónico no es válido.';
       case 'auth/popup-closed-by-user':
         return 'La ventana de inicio de sesión de Google fue cerrada antes de completar.';
+      case 'auth/unauthorized-domain':
+        return `Dominio no autorizado para inicio de sesión con Google. Para solucionarlo, ve a tu Consola de Firebase (Authentication -> Ajustes -> Dominios Autorizados) y agrega este dominio: "${window.location.hostname}"`;
       case 'auth/operation-not-allowed':
         return 'El método de autenticación seleccionado no está habilitado en la consola de Firebase. Se recomienda usar Google Sign-In.';
       default:

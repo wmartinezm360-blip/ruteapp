@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeOff, Delete, Shield, Lock, AlertCircle, Loader2, LogOut } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { signOut } from 'firebase/auth';
+import { setupPin, verifyPin } from '../../lib/firestoreService';
 
 interface PinScreenProps {
   mode: 'setup' | 'verify' | 'reset';
@@ -65,43 +66,22 @@ export default function PinScreen({ mode, uid, onSuccess, onLock }: PinScreenPro
     setErrorMsg(null);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch('/api/verify-pin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          uid: currentUid,
-          pin: pinToVerify
-        })
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const message = data.error === 'Invalid PIN' 
-          ? 'PIN incorrecto. Intenta de nuevo.'
-          : data.error === 'User not found'
-          ? 'Registro de PIN no encontrado. Por favor completa el registro.'
-          : data.error || 'Error al verificar el PIN.';
-        
-        setErrorMsg(message);
-        setPin('');
-
-        if (message.toLowerCase().includes('wait') || message.toLowerCase().includes('attempts')) {
-          onLock?.();
-        }
-        return;
-      }
-
-      // Successful verification
+      await verifyPin(pinToVerify);
       onSuccess(pinToVerify);
     } catch (err: any) {
       console.error('Error verifying PIN:', err);
-      setErrorMsg('Error de red al verificar el PIN. Intenta nuevamente.');
+      const message = err.message === 'Invalid PIN'
+        ? 'PIN incorrecto. Intenta de nuevo.'
+        : err.message === 'User not found'
+        ? 'Registro de PIN no encontrado. Por favor completa el registro.'
+        : err.message || 'Error al verificar el PIN.';
+      
+      setErrorMsg(message);
       setPin('');
+
+      if (message.toLowerCase().includes('wait') || message.toLowerCase().includes('attempts') || message.toLowerCase().includes('espera')) {
+        onLock?.();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -112,17 +92,7 @@ export default function PinScreen({ mode, uid, onSuccess, onLock }: PinScreenPro
     setErrorMsg(null);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (token) {
-        await fetch('/api/setup-pin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ pin: finalPin })
-        });
-      }
+      await setupPin(finalPin);
       onSuccess(finalPin);
     } catch (err) {
       console.error('Error setting up PIN record:', err);

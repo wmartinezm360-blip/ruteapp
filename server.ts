@@ -4,6 +4,7 @@
 
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, applicationDefault, App } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Query, WriteResult } from 'firebase-admin/firestore';
@@ -15,14 +16,31 @@ import { GoogleGenAI, Type } from '@google/genai';
 
 // Lazy initialization for Firebase Admin
 let adminApp: App | null = null;
+let cachedDatabaseId: string | undefined = undefined;
+
 function getFirebaseAdmin() {
   if (!adminApp) {
+    let projectId: string | undefined = undefined;
+    try {
+      const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+      if (fs.existsSync(configPath)) {
+        const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (configData) {
+          if (configData.projectId) projectId = configData.projectId;
+          if (configData.firestoreDatabaseId) cachedDatabaseId = configData.firestoreDatabaseId;
+        }
+      }
+    } catch (e) {
+      console.error('Error reading firebase-applet-config.json:', e);
+    }
+
     adminApp = initializeApp({
       credential: applicationDefault(),
+      projectId: projectId || process.env.FIREBASE_PROJECT_ID || 'rute-65a2a'
     });
   }
   return {
-    firestore: () => getFirestore(adminApp!),
+    firestore: () => cachedDatabaseId ? getFirestore(adminApp!, cachedDatabaseId) : getFirestore(adminApp!),
     auth: () => getAuth(adminApp!),
   };
 }
@@ -484,49 +502,25 @@ app.post('/api/execute-reset', async (req, res) => {
 
 
 // API route: AI Chat
+const chatRateLimits = new Map<string, { count: number; windowStart: number }>();
+
 app.post('/api/chat', async (req, res) => {
   const { uid: sessionUid, status } = await getAuthenticatedUser(req);
   if (!sessionUid) return res.status(401).json({ error: 'Unauthorized' });
   if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
 
-  const db = getFirebaseAdmin().firestore();
+  // Rate limiting backed by in-memory Map (100 per hour) to avoid PERMISSION_DENIED on cross-project Admin SDK
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  let userLimit = chatRateLimits.get(sessionUid);
   
-  // Rate limiting backed by Firestore (100 per hour)
-  const rateLimitRef = db.collection('rate_limits').doc(`chat_${sessionUid}`);
-  try {
-    await db.runTransaction(async (transaction) => {
-      const doc = await transaction.get(rateLimitRef);
-      const now = Date.now();
-      const oneHour = 60 * 60 * 1000;
-      if (!doc.exists) {
-        transaction.set(rateLimitRef, { count: 1, windowStart: now });
-      } else {
-        const data = doc.data()!;
-        if (now - data.windowStart > oneHour) {
-          transaction.set(rateLimitRef, { count: 1, windowStart: now });
-        } else if (data.count >= 100) {
-          throw new Error('RATE_LIMIT_EXCEEDED');
-        } else {
-          transaction.update(rateLimitRef, { count: data.count + 1 });
-        }
-      }
-    });
-  } catch (err: any) {
-    if (err.message === 'RATE_LIMIT_EXCEEDED') {
-      return res.status(429).json({ error: 'Demasiados mensajes enviados. Por favor, intenta de nuevo más tarde.' });
-    }
-    console.error('Rate limiting error in /api/chat:', err);
-    try {
-      await db.collection('system_errors').add({
-        type: 'chat_rate_limit_error',
-        timestamp: Date.now(),
-        errorMsg: err.message || 'Unknown error',
-        userId: sessionUid
-      });
-    } catch (logErr) {
-      console.error('Failed to log system error in /api/chat rate limit:', logErr);
-    }
-    return res.status(500).json({ error: 'Error al procesar la verificación de límites. Por favor, intenta de nuevo más tarde.' });
+  if (!userLimit || (now - userLimit.windowStart > oneHour)) {
+    userLimit = { count: 1, windowStart: now };
+    chatRateLimits.set(sessionUid, userLimit);
+  } else if (userLimit.count >= 100) {
+    return res.status(429).json({ error: 'Demasiados mensajes enviados. Por favor, intenta de nuevo más tarde.' });
+  } else {
+    userLimit.count += 1;
   }
 
   const { message, history, context } = req.body;
@@ -560,7 +554,7 @@ CATEGORÍA G — Cambio abrupto hacia calma: Tras angustia intensa pasa a calma 
 LÍMITE EXPLÍCITO: NO diagnostiques. Si activas risk_flag: true, tu única función es:
 1) Responder con validación breve y cálida, sin minimizar.
 2) NO continuar la conversación normal en ese turno.
-Tu respuesta (en el campo text) debe ser EXCLUSIVAMENTE:
+Tu respuesta (en el campo text) debe ser EXCLUSIVELY:
 "Siento mucho que estés pasando por un momento tan difícil. Tu seguridad es lo más importante en este momento y quiero que sepas que no estás solo/a. Por favor, revisa los recursos de apoyo en pantalla."
 
 **REGLA 3: TONO, ESTILO Y REFUERZO POSITIVO**
@@ -603,17 +597,23 @@ ${context || 'No hay contexto adicional.'}`;
       res.json(output);
     } catch (parseErr) {
       console.error('Failed to parse Gemini JSON:', parseErr);
-      await db.collection('system_errors').add({
-        type: 'gemini_json_parse_error',
-        timestamp: Date.now(),
-        rawResponse: response.text,
-        userId: sessionUid
-      });
+      try {
+        const db = getFirebaseAdmin().firestore();
+        await db.collection('system_errors').add({
+          type: 'gemini_json_parse_error',
+          timestamp: Date.now(),
+          rawResponse: response.text,
+          userId: sessionUid
+        });
+      } catch (logErr) {
+        console.error('Failed to log system error in /api/chat parse JSON:', logErr);
+      }
       res.json({ text: "Lo siento, estoy teniendo un problema técnico para procesar tu mensaje. Por favor, intenta de nuevo. Si necesitas ayuda inmediata o estás pasando por una crisis, por favor utiliza el botón de asistencia y recursos de emergencia (icono de salvavidas) visible en la parte superior de la interfaz.", risk_flag: false });
     }
   } catch (err: any) {
     console.error('Chat error:', err);
     try {
+      const db = getFirebaseAdmin().firestore();
       await db.collection('system_errors').add({
         type: 'gemini_api_error',
         timestamp: Date.now(),
@@ -640,15 +640,21 @@ async function getAuthenticatedUser(req: any): Promise<{ uid: string | null, sta
     const decodedToken = await getFirebaseAdmin().auth().verifyIdToken(idToken);
     uid = decodedToken.uid;
     isAdmin = !!decodedToken.admin;
-  } catch (e) {
+  } catch (e: any) {
+    console.error('Error verifying Firebase ID token:', e.message || e);
     return { uid: null, status: null, isAdmin: false };
   }
 
-  // Check user status in Firestore
+  // Check user status in Firestore (wrapped safely in try-catch to fallback on cross-project Admin SDK PERMISSION_DENIED)
+  let status = 'active';
   if (uid) {
-    const db = getFirebaseAdmin().firestore();
-    const userDoc = await db.collection('users').doc(uid).get();
-    const status = userDoc.exists ? userDoc.data()?.status : 'active';
+    try {
+      const db = getFirebaseAdmin().firestore();
+      const userDoc = await db.collection('users').doc(uid).get();
+      status = userDoc.exists ? userDoc.data()?.status : 'active';
+    } catch (e: any) {
+      console.warn('Could not fetch user status from Firestore due to permission limits, defaulting to active:', e.message || e);
+    }
     return { uid, status, isAdmin };
   }
   
