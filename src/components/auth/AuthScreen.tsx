@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { Shield, Lock, Mail, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import logoCorporativo from '../public/logo corporativo.png';
 
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -78,8 +79,13 @@ export default function AuthScreen() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-stone-200 p-8">
         {/* Brand & Security Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-stone-900 text-stone-100 mb-4 shadow-sm">
-            <Shield className="w-7 h-7 text-amber-400" />
+          <div className="flex justify-center mb-6">
+            <img 
+              src={logoCorporativo} 
+              alt="Logo Corporativo" 
+              className="h-16 w-auto object-contain max-w-full" 
+              referrerPolicy="no-referrer"
+            />
           </div>
           <h1 className="text-2xl font-bold text-stone-900 tracking-tight">
             Bienestar & Salud Mental
