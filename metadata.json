@@ -1,0 +1,6 @@
+{
+  "name": "Ruta",
+  "description": "Ruta es una aplicación de seguimiento de metas y construcción de hábitos orientada a fortalecer la autoestima y el sentido de propósito a través de un enfoque basado en evidencia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
