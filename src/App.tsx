@@ -8,6 +8,8 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { generateSalt } from './lib/encryption';
 import { getProfile, checkPinRecordExists } from './lib/firestoreService';
+import { decryptUserProfile } from './lib/profile';
+import { saveDecryptedProfileToLocal } from './lib/userProfileContext';
 import AuthScreen from './components/auth/AuthScreen';
 import PinScreen from './components/auth/PinScreen';
 import ResetPinScreen from './components/auth/ResetPinScreen';
@@ -117,7 +119,17 @@ export default function App() {
         <PinScreen 
           mode="verify" 
           uid={currentUser.uid}
-          onSuccess={() => setPinVerified(true)} 
+          onSuccess={async (verifiedPin) => {
+            try {
+              const answers = await decryptUserProfile(currentUser.uid, verifiedPin);
+              if (answers) {
+                saveDecryptedProfileToLocal(currentUser.uid, answers);
+              }
+            } catch (err) {
+              console.warn("Could not decrypt profile with PIN:", err);
+            }
+            setPinVerified(true);
+          }} 
         />
       );
     }
@@ -144,7 +156,10 @@ export default function App() {
       pin={setupPin} 
       salt={setupSalt} 
       uid={currentUser.uid} 
-      onComplete={() => {
+      onComplete={(answers) => {
+        if (answers) {
+          saveDecryptedProfileToLocal(currentUser.uid, answers);
+        }
         setHasProfile(true);
         setPinVerified(true);
       }} 

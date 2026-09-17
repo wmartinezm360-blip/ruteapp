@@ -108,6 +108,134 @@ export async function deleteActivityLog(id: string) {
   await deleteDoc(docRef);
 }
 
+// Mood Tracking CRUD with Cloud & Local Mirror Resilience
+export async function getMoodLogs(limitCount: number = 60) {
+  const user = auth.currentUser;
+  if (!user) return [];
+  const localKey = `ruta_mood_logs_${user.uid}`;
+  
+  try {
+    const q = query(
+      collection(db, 'mood_logs'),
+      where('uid', '==', user.uid)
+    );
+    const snap = await getDocs(q);
+    const logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+    const sorted = logs.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.timestamp || 0) - (b.timestamp || 0));
+    try {
+      localStorage.setItem(localKey, JSON.stringify(sorted));
+    } catch {}
+    return sorted;
+  } catch (err) {
+    console.warn('Firestore getMoodLogs failed, falling back to local store:', err);
+    try {
+      const cached = localStorage.getItem(localKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {}
+    return [];
+  }
+}
+
+export async function saveMoodLog(data: {
+  id?: string;
+  date: string;
+  score: number;
+  energyScore?: number;
+  emotions: string[];
+  triggers: string[];
+  notes?: string;
+}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('User not authenticated');
+  const localKey = `ruta_mood_logs_${user.uid}`;
+
+  const payload: any = {
+    uid: user.uid,
+    date: data.date,
+    score: data.score,
+    energyScore: data.energyScore ?? 3,
+    emotions: data.emotions || [],
+    triggers: data.triggers || [],
+    notes: (data.notes || '').trim(),
+    updatedAt: Date.now()
+  };
+
+  let savedItem: any = null;
+  try {
+    if (data.id && !data.id.startsWith('local_')) {
+      const docRef = doc(db, 'mood_logs', data.id);
+      await updateDoc(docRef, payload);
+      savedItem = { id: data.id, ...payload };
+    } else {
+      // Check if there is already an entry for this date by this user
+      const q = query(
+        collection(db, 'mood_logs'),
+        where('uid', '==', user.uid),
+        where('date', '==', data.date)
+      );
+      const existingSnap = await getDocs(q);
+      if (!existingSnap.empty) {
+        const existingDoc = existingSnap.docs[0];
+        await updateDoc(existingDoc.ref, payload);
+        savedItem = { id: existingDoc.id, ...payload };
+      } else {
+        payload.timestamp = Date.now();
+        const docRef = await addDoc(collection(db, 'mood_logs'), payload);
+        savedItem = { id: docRef.id, ...payload };
+      }
+    }
+  } catch (err) {
+    console.warn('Firestore saveMoodLog notice (saving to local mirror):', err);
+    savedItem = {
+      id: data.id || `local_${Date.now()}`,
+      timestamp: Date.now(),
+      ...payload
+    };
+  }
+
+  // Update local mirror
+  try {
+    const raw = localStorage.getItem(localKey);
+    let list: any[] = raw ? JSON.parse(raw) : [];
+    const idx = list.findIndex(item => item.date === savedItem.date || item.id === savedItem.id);
+    if (idx >= 0) {
+      list[idx] = savedItem;
+    } else {
+      list.push(savedItem);
+    }
+    list.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    localStorage.setItem(localKey, JSON.stringify(list));
+  } catch {}
+
+  return savedItem;
+}
+
+export async function deleteMoodLog(id: string) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const localKey = `ruta_mood_logs_${user.uid}`;
+
+  try {
+    if (!id.startsWith('local_')) {
+      const docRef = doc(db, 'mood_logs', id);
+      await deleteDoc(docRef);
+    }
+  } catch (err) {
+    console.warn('Firestore deleteMoodLog notice:', err);
+  }
+
+  try {
+    const raw = localStorage.getItem(localKey);
+    if (raw) {
+      const list: any[] = JSON.parse(raw);
+      const filtered = list.filter(item => item.id !== id);
+      localStorage.setItem(localKey, JSON.stringify(filtered));
+    }
+  } catch {}
+}
+
 export async function getCrisisResources(country: string = 'CO') {
   const docRef = doc(db, 'crisis_resources', country);
   const snap = await getDoc(docRef);

@@ -53,6 +53,18 @@ export interface UserProfileData {
   encrypted_payload: string; // E2EE data: quiz responses, diary, chat history
 }
 
+export interface MoodLog {
+  id: string;
+  uid: string;
+  date: string; // YYYY-MM-DD
+  timestamp: number;
+  score: number; // 1 to 5 (1: Muy bajo, 2: Bajo, 3: Neutro, 4: Bueno, 5: Excelente)
+  energyScore: number; // 1 to 5 (1: Agotado, 5: Con mucha energía)
+  emotions: string[]; // e.g. ['Calma', 'Agradecido', 'Motivado']
+  triggers: string[]; // e.g. ['Sueño / Descanso', 'Trabajo / Presión']
+  notes?: string;
+}
+
 // --- Server-Side Only Types ---
 // DO NOT import these types in React components.
 

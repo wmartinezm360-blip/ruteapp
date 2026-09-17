@@ -532,9 +532,13 @@ app.post('/api/chat', async (req, res) => {
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
-    const systemInstruction = `Eres un asistente virtual especializado en bienestar emocional, desarrollo personal y apoyo motivacional. Tu propósito es ofrecer contención empática, psicoeducación general y estrategias prácticas basadas en evidencia.
+    const systemInstruction = `Eres un asistente virtual especializado en bienestar emocional, desarrollo personal y apoyo motivacional en la aplicación 'Ruta'. Tu propósito es ofrecer contención empática, psicoeducación general y estrategias prácticas basadas en evidencia.
 
-Recibirás como contexto el perfil motivacional del usuario y el estado actual de sus metas. Debes usar esta información para personalizar tus respuestas, adaptar tu tono y sugerir pasos accionables.
+Recibirás como contexto el perfil motivacional del usuario (obtenido de su cuestionario inicial) y el estado real de sus metas.
+DEBES incorporar de manera directa, específica y empática este perfil y estas metas en tus respuestas. 
+- PROHIBIDO DAR RESPUESTAS GENÉRICAS: Responde siempre considerando el estilo del usuario (ej. si prefiere pasos pequeños o visión global, su nivel de energía o su estilo de acompañamiento).
+- METAS REALES: Menciona sus metas reales por su nombre específico. NUNCA inventes metas ficticias (como lectura, a menos que esté en sus metas reales). Si no tiene metas creadas, invítalo con calidez a registrar su primera meta en "Mis Metas".
+- Si el usuario simplemente te saluda (ej: "Hola"), salúdalo cálidamente reconociendo su progreso de hoy o sus metas pendientes según su perfil motivacional.
 
 **REGLA 1: LÍMITES CLÍNICOS ESTRICTOS (CERO DIAGNÓSTICOS)**
 - BAJO NINGUNA CIRCUNSTANCIA debes diagnosticar, nombrar, sugerir, insinuar o confirmar un trastorno mental, condición clínica o psicopatología. ESTE LÍMITE ES ABSOLUTO E INQUEBRANTABLE.
@@ -554,13 +558,13 @@ CATEGORÍA G — Cambio abrupto hacia calma: Tras angustia intensa pasa a calma 
 LÍMITE EXPLÍCITO: NO diagnostiques. Si activas risk_flag: true, tu única función es:
 1) Responder con validación breve y cálida, sin minimizar.
 2) NO continuar la conversación normal en ese turno.
-Tu respuesta (en el campo text) debe ser EXCLUSIVELY:
+Tu respuesta (en el campo text) debe ser EXCLUSIVAMENTE:
 "Siento mucho que estés pasando por un momento tan difícil. Tu seguridad es lo más importante en este momento y quiero que sepas que no estás solo/a. Por favor, revisa los recursos de apoyo en pantalla."
 
 **REGLA 3: TONO, ESTILO Y REFUERZO POSITIVO**
-- Tu tono debe ser cálido, validante, neutral y no punitivo. Fomenta la autonomía.
+- Tu tono debe ser cálido, validante, constructivo y no punitivo. Fomenta la autonomía del usuario.
 
-Contexto del usuario:
+Contexto real del usuario:
 ${context || 'No hay contexto adicional.'}`;
 
     const formattedHistory = (history || []).map((msg: any) => ({
@@ -636,6 +640,89 @@ ${context || 'No hay contexto adicional.'}`;
   } catch (err: any) {
     console.error('Chat error:', err);
     res.json({ text: "Lo siento, estoy teniendo un problema técnico en este momento. Por favor, intenta de nuevo más tarde. Si necesitas ayuda inmediata o estás pasando por una crisis, por favor utiliza el botón de asistencia y recursos de emergencia (icono de salvavidas) visible en la parte superior de la interfaz.", risk_flag: false });
+  }
+});
+
+// API route: Daily Motivational Message tailored to User Profile & Real Goals
+app.post('/api/daily-motivation', async (req, res) => {
+  const { uid: sessionUid, status } = await getAuthenticatedUser(req);
+  if (!sessionUid) return res.status(401).json({ error: 'Unauthorized' });
+  if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
+
+  const { context, date } = req.body;
+
+  try {
+    const ai = new GoogleGenAI({ 
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    const systemInstruction = `Eres el Asistente de Bienestar de la aplicación 'Ruta'.
+Tu tarea es generar un mensaje diario de motivación único, inspirador, empático y profundamente personalizado para el usuario, sin que él tenga que escribir primero.
+
+DEBES SEGUIR ESTAS INSTRUCCIONES:
+1. PERSONALIZACIÓN BASADA EN PERFIL: Utiliza el perfil motivacional del usuario (su ritmo de energía, si prefiere pasos pequeños o visión global, qué lo motiva, su estilo de acompañamiento).
+2. PERSONALIZACIÓN BASADA EN METAS REALES: Menciona de forma orgánica y concreta sus metas reales actuales y su estado de hoy (si tiene metas completadas o pendientes). Si aún no tiene metas, anímalo calurosamente a dar el primer paso y definir una. NUNCA inventes metas ficticias (como hábitos de lectura u otros que no figuren en el contexto).
+3. TONO: Cercano, humano, motivador y libre de clichés vacíos o frases genéricas prefabricadas.
+4. LÍMITES CLÍNICOS: No uses diagnósticos, ni términos médicos.
+
+Devuelve un JSON con exactamente:
+- "greeting": saludo cálido para hoy adaptado a su ritmo y momento (ej: "¡Buenos días, enfocado en tus pasos!", "¡Buenas tardes, momento de recargar energías!").
+- "message": mensaje motivador de 2 a 3 oraciones conectando con sus metas reales y su estilo personal de afrontar el día.
+- "tip": una micro-estrategia práctica de 1 sola frase accionable para hoy.`;
+
+    let response;
+    let attempts = 0;
+    const maxRetries = 2;
+    const delay = 800;
+
+    while (true) {
+      try {
+        const modelName = attempts === 0 ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+        const modelConfig: any = {
+          systemInstruction,
+          temperature: 0.7,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              greeting: { type: Type.STRING },
+              message: { type: Type.STRING },
+              tip: { type: Type.STRING }
+            },
+            required: ["greeting", "message", "tip"]
+          }
+        };
+
+        if (modelName === 'gemini-3.8-flash') {
+          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+        }
+
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: [{ role: 'user', parts: [{ text: `Genera la motivación para hoy (${date || 'hoy'}).\n\n${context || ''}` }] }],
+          config: modelConfig
+        });
+        break;
+      } catch (err: any) {
+        attempts++;
+        if (attempts < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay * attempts));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    const output = JSON.parse(response.text || '{}');
+    res.json(output);
+  } catch (err: any) {
+    console.error('Daily motivation error:', err);
+    res.json({
+      greeting: "¡Hola! Un nuevo día para avanzar a tu ritmo",
+      message: "Cada paso que das cuenta. Recuerda que la constancia y la amabilidad contigo mismo son la clave de cualquier gran camino.",
+      tip: "Elige una pequeña acción de tu meta hoy y cúmplela sin prisa pero con intención."
+    });
   }
 });
 

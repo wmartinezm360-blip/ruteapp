@@ -34,6 +34,13 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
 
+    // 3.5. Mood Logs: User-owned records
+    match /mood_logs/{moodId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // 4. Risk Events: User-owned records
     match /risk_events/{eventId} {
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;

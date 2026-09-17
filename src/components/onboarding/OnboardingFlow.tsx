@@ -2,12 +2,13 @@ import { useState } from 'react';
 import Questionnaire from './Questionnaire';
 import { deriveKey, encryptData, generateDEK, wrapDEK } from '../../lib/encryption';
 import { saveProfile } from '../../lib/firestoreService';
+import { saveDecryptedProfileToLocal } from '../../lib/userProfileContext';
 
 interface OnboardingFlowProps {
   pin: string;
   salt: Uint8Array;
   uid: string;
-  onComplete: () => void;
+  onComplete: (answers?: Record<number, string>) => void;
 }
 
 export default function OnboardingFlow({ pin, salt, uid, onComplete }: OnboardingFlowProps) {
@@ -17,6 +18,9 @@ export default function OnboardingFlow({ pin, salt, uid, onComplete }: Onboardin
   const handleComplete = async (answers: Record<number, string>) => {
     setStatus('encrypting');
     try {
+      // 0. Guardar en almacenamiento seguro de sesión/local para contexto del asistente
+      saveDecryptedProfileToLocal(uid, answers);
+
       // 1. Derivar KEK real
       const kek = await deriveKey(pin, salt);
       
@@ -48,7 +52,7 @@ export default function OnboardingFlow({ pin, salt, uid, onComplete }: Onboardin
       });
 
       setStatus('complete');
-      onComplete();
+      onComplete(answers);
       
     } catch (err: any) {
       console.error(err);
