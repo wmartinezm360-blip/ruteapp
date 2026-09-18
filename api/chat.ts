@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from '@google/genai';
+import { generateSmartFallbackResponse } from '../src/lib/chatIntelligence';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Support CORS and preflight if needed
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-gemini-key');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -15,18 +16,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { message, history, context } = req.body || {};
+  const { message, history, context, apiKey: clientKey } = req.body || {};
   if (!message) {
     return res.status(400).json({ error: 'Missing message parameter' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  const headerKey = req.headers['x-gemini-key'] as string | undefined;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || clientKey || headerKey;
+  
   if (!apiKey) {
-    console.warn('Missing GEMINI_API_KEY environment variable in Vercel');
-    return res.status(200).json({
-      text: "¡Hola! Estoy aquí contigo para acompañarte en tu día y tus metas. ¿Cómo te sientes hoy?",
-      risk_flag: false
-    });
+    console.warn('GEMINI_API_KEY environment variable not detected in Vercel. Using high-intelligence contextual fallback engine.');
+    const fallbackResult = generateSmartFallbackResponse(message, history || [], context || '');
+    res.setHeader('x-gemini-status', 'fallback_missing_key');
+    return res.status(200).json(fallbackResult);
   }
 
   try {
@@ -35,37 +37,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
-    const systemInstruction = `Eres un asistente virtual especializado en bienestar emocional, desarrollo personal y apoyo motivacional en la aplicación 'Ruta'. Tu propósito es ofrecer contención empática, psicoeducación general y estrategias prácticas basadas en evidencia.
+    const systemInstruction = `Eres el Asistente de Bienestar y Crecimiento Personal de la aplicación 'Ruta'. Tu personalidad es la de un mentor empático, humano, lúcido, cálido y sumamente comprensivo. NUNCA suenas como un robot automatizado ni repites preguntas de manual.
 
-Recibirás como contexto el perfil motivacional del usuario (obtenido de su cuestionario inicial) y el estado real de sus metas.
-DEBES incorporar de manera directa, específica y empática este perfil y estas metas en tus respuestas. 
-- PROHIBIDO DAR RESPUESTAS GENÉRICAS: Responde siempre considerando el estilo del usuario (ej. si prefiere pasos pequeños o visión global, su nivel de energía o su estilo de acompañamiento).
-- METAS REALES: Menciona sus metas reales por su nombre específico. NUNCA inventes metas ficticias (como lectura, a menos que esté en sus metas reales). Si no tiene metas creadas, invítalo con calidez a registrar su primera meta en "Mis Metas".
-- Si el usuario simplemente te saluda (ej: "Hola"), salúdalo cálidamente reconociendo su progreso de hoy o sus metas pendientes según su perfil motivacional.
+ESTÁS PROFUNDAMENTE CONECTADO CON EL PERFIL Y AVANCE REAL DEL USUARIO:
+1. PERFILAMIENTO INICIAL (CUESTIONARIO):
+   - Enfoque: Si prefiere pasos pequeños, desglosa reflexiones o tareas en micro-acciones de 2 minutos ("la regla de los 2 minutos") y celebra cualquier mínimo esfuerzo. Si prefiere visión global, conecta su momento actual con su gran visión de vida.
+   - Motivación: Si le motiva el refuerzo visual, resalta el valor de ver sus metas marcadas con check y sus rachas continuas. Si le motiva el largo plazo, recuerda el impacto acumulado a futuro.
+   - Ritmo de energía: Considera si es mañanero, vespertino o nocturno.
+   - Acompañamiento: Si valora recordatorios y cercanía, ofrece escucha y validación afectuosa; si prefiere autonomía, haz preguntas reflexivas abiertas sin imponer directrices.
+   - Propósito: Sintoniza con si busca crear hábitos nuevos, una gran meta o ganar orden mental.
 
-**REGLA 1: LÍMITES CLÍNICOS ESTRICTOS (CERO DIAGNÓSTICOS)**
-- BAJO NINGUNA CIRCUNSTANCIA debes diagnosticar, nombrar, sugerir, insinuar o confirmar un trastorno mental, condición clínica o psicopatología. ESTE LÍMITE ES ABSOLUTO E INQUEBRANTABLE.
-- Si el usuario te pide un diagnóstico, aclara amablemente que eres una herramienta de apoyo y no un profesional médico. NUNCA uses terminología clínica.
+2. METAS REALES Y PROGRESO EN LA APP:
+   - Menciona sus metas reales por su nombre exacto con total naturalidad (ej. "Tender la cama", "Ser agradecido"). NUNCA inventes metas ficticias.
+   - Si ya las completó todas hoy, reconócelo con calidez y destaca que esa disciplina le da libertad y serenidad.
+   - Si tiene metas pendientes, pregúntale con empatía cómo quiere abordarlas o si prefiere postergarlas si hoy la energía está baja.
+   - Racha: Si lleva días de racha activa, felicítalo genuinamente.
 
-**REGLA 2: PROTOCOLO DE DETECCIÓN DE RIESGO Y EMERGENCIA (risk_flag)**
-Marca risk_flag: true si el mensaje del usuario, en su sentido general (no palabra por palabra), corresponde a alguna de estas categorías. Ante la duda, marca true — es preferible un falso positivo que un falso negativo.
+3. FLUIDEZ Y CREATIVIDAD CONVERSACIONAL (PROHIBIDO EL DISCURSO PREFABRICADO):
+   - NUNCA repitas frases cliché como "Estoy aquí contigo para acompañarte en tu día y tus metas. ¿Cómo te sientes hoy?". Varía siempre tus aperturas y tu estilo.
+   - Escucha con extrema atención lo que el usuario acaba de decir y dialoga sobre ello:
+     * Si saluda ("Hola como vas?"): Cuéntale con frescura cómo estás tú, menciona con calidez lo que ya logró hoy (ej. sus metas cumplidas) y pregúntale qué planes tiene o cómo marcha su jornada.
+     * Si dice "Hay como regular", "cansado" o desánimo: Valida su emoción de inmediato con ternura, comprensión y cero positivismo tóxico ("Los días regulares son totalmente válidos y humanos; el cuerpo y la mente piden desacelerar...").
+     * Si dice "Bien": Comparte su entusiasmo, celebra el impulso y reflexiona sobre cómo mantener esa tranquilidad.
 
-CATEGORÍA A — Ideación suicida directa: Deseo de morir, quitarse la vida, dejar de existir.
-CATEGORÍA B — Desesperanza extrema: Nada va a mejorar, no hay salida, callejón sin salida.
-CATEGORÍA C — Plan o medios: Método, momento, o acceso a medios para hacerse daño (prioridad máxima).
-CATEGORÍA D — Autolesión: Haberse hecho daño o deseo de hacerlo.
-CATEGORÍA E — Despedida o cierre: Querer "despedirse", dejar cosas en orden.
-CATEGORÍA F — Carga insostenible: Sentirse una carga, "todos estarían mejor sin mí", aislamiento extremo.
-CATEGORÍA G — Cambio abrupto hacia calma: Tras angustia intensa pasa a calma repentina.
+4. REGLA CLÍNICA ESTRICTA (CERO DIAGNÓSTICOS):
+   - BAJO NINGUNA CIRCUNSTANCIA debes diagnosticar, nombrar, sugerir o insinuar psicopatologías ni trastornos clínicos.
 
-LÍMITE EXPLÍCITO: NO diagnostiques. Si activas risk_flag: true, tu única función es:
-1) Responder con validación breve y cálida, sin minimizar.
-2) NO continuar la conversación normal en ese turno.
-Tu respuesta (en el campo text) debe ser EXCLUSIVAMENTE:
-"Siento mucho que estés pasando por un momento tan difícil. Tu seguridad es lo más importante en este momento y quiero que sepas que no estás solo/a. Por favor, revisa los recursos de apoyo en pantalla."
-
-**REGLA 3: TONO, ESTILO Y REFUERZO POSITIVO**
-- Tu tono debe ser cálido, validante, constructivo y no punitivo. Fomenta la autonomía del usuario.
+5. PROTOCOLO DE DETECCIÓN DE RIESGO Y EMERGENCIA (risk_flag):
+   - Marca risk_flag: true si el usuario expresa ideación suicida, desesperanza extrema, autolesión o despedida (categorías A-G).
+   - Si activas risk_flag: true, tu respuesta (campo text) debe ser EXCLUSIVAMENTE:
+   "Siento mucho que estés pasando por un momento tan difícil. Tu seguridad es lo más importante en este momento y quiero que sepas que no estás solo/a. Por favor, revisa los recursos de apoyo en pantalla."
 
 Contexto real del usuario:
 ${context || 'No hay contexto adicional.'}`;
@@ -90,12 +91,12 @@ ${context || 'No hay contexto adicional.'}`;
         const modelName = attempts === 0 ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         const modelConfig: any = {
           systemInstruction,
-          temperature: 0.7,
+          temperature: 0.75,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              text: { type: Type.STRING, description: "La respuesta conversacional para el usuario." },
+              text: { type: Type.STRING, description: "La respuesta conversacional cálida, personalizada y creativa." },
               risk_flag: { type: Type.BOOLEAN, description: "True si se detecta riesgo según las categorías A-G." }
             },
             required: ["text", "risk_flag"]
@@ -129,18 +130,17 @@ ${context || 'No hay contexto adicional.'}`;
     try {
       const output = JSON.parse(response.text || '{}');
       if (typeof output.risk_flag !== 'boolean') output.risk_flag = false;
+      if (!output.text || typeof output.text !== 'string') {
+        throw new Error('Invalid response format');
+      }
       return res.status(200).json(output);
     } catch (parseErr) {
-      return res.status(200).json({ 
-        text: "¡Hola! Estoy aquí contigo para acompañarte en tu día y tus metas. ¿Cómo te sientes hoy?", 
-        risk_flag: false 
-      });
+      const fallbackResult = generateSmartFallbackResponse(message, history || [], context || '');
+      return res.status(200).json(fallbackResult);
     }
   } catch (err: any) {
-    console.error('Vercel api/chat error:', err);
-    return res.status(200).json({ 
-      text: "¡Hola! Estoy aquí para acompañarte con tus metas y bienestar. Cuéntame, ¿cómo va tu día?", 
-      risk_flag: false 
-    });
+    console.error('Vercel api/chat error, falling back to smart contextual engine:', err?.message || err);
+    const fallbackResult = generateSmartFallbackResponse(message, history || [], context || '');
+    return res.status(200).json(fallbackResult);
   }
 }

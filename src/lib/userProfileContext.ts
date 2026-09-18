@@ -20,14 +20,31 @@ export function saveDecryptedProfileToLocal(uid: string, answers: QuestionnaireA
   }
 }
 
-export function getDecryptedProfileFromLocal(uid: string): QuestionnaireAnswers | null {
+export function getDecryptedProfileFromLocal(uid?: string): QuestionnaireAnswers | null {
   try {
-    const key = `${STORAGE_KEY_PREFIX}${uid}`;
-    const sessionVal = sessionStorage.getItem(key);
-    if (sessionVal) return JSON.parse(sessionVal);
+    if (uid) {
+      const key = `${STORAGE_KEY_PREFIX}${uid}`;
+      const sessionVal = sessionStorage.getItem(key);
+      if (sessionVal) return JSON.parse(sessionVal);
 
-    const localVal = localStorage.getItem(key);
-    if (localVal) return JSON.parse(localVal);
+      const localVal = localStorage.getItem(key);
+      if (localVal) return JSON.parse(localVal);
+    }
+
+    // Fallback: search any stored profile in session/local storage
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_KEY_PREFIX)) {
+          const val = localStorage.getItem(k);
+          if (val) {
+            try {
+              return JSON.parse(val);
+            } catch (_) {}
+          }
+        }
+      }
+    }
   } catch (e) {
     console.warn('Failed to read profile from storage:', e);
   }
