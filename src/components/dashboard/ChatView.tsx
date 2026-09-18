@@ -26,6 +26,8 @@ export default function ChatView() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isFallbackMode, setIsFallbackMode] = useState(false);
+  const [fallbackReason, setFallbackReason] = useState<string>('');
+  const [fallbackDetails, setFallbackDetails] = useState<string>('');
   const [dismissFallbackNotice, setDismissFallbackNotice] = useState(false);
   
   // Real user goals and profiling state
@@ -131,6 +133,21 @@ export default function ChatView() {
     loadUserContext();
   }, [loadUserContext]);
 
+  useEffect(() => {
+    fetch('/api/chat')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.has_key) {
+          setIsFallbackMode(false);
+          setFallbackReason('');
+        } else if (data && !data.has_key) {
+          setIsFallbackMode(true);
+          setFallbackReason('missing_gemini_api_key');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -205,10 +222,15 @@ export default function ChatView() {
       if (!data || !data.text) {
         data = generateSmartFallbackResponse(userMessage.text, history, realContext);
         setIsFallbackMode(true);
-      } else if ((data as any).is_fallback || (data as any).reason === 'missing_gemini_api_key') {
+        setFallbackReason('network_or_server_unreachable');
+      } else if ((data as any).is_fallback) {
         setIsFallbackMode(true);
+        setFallbackReason((data as any).reason || 'fallback_active');
+        setFallbackDetails((data as any).details || '');
       } else {
         setIsFallbackMode(false);
+        setFallbackReason('');
+        setFallbackDetails('');
       }
 
       if (data.risk_flag) {
@@ -277,8 +299,20 @@ export default function ChatView() {
         <div className="bg-amber-50 border-b border-amber-200 p-2.5 sm:p-3 flex items-start gap-2.5 text-xs text-amber-900">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1 text-2xs sm:text-xs leading-relaxed">
-            <span className="font-semibold text-amber-950">Aviso: La clave de Gemini no está activa en el despliegue actual de Vercel.</span>{' '}
-            Si acabas de agregar <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">GEMINI_API_KEY</code> en tu panel de Vercel, debes ir a la pestaña <strong>Deployments</strong>, hacer clic en los tres puntos <strong>(...)</strong> del último despliegue y seleccionar <strong>Redeploy</strong> (o hacer push a GitHub) para que Vercel aplique la variable.
+            {fallbackReason === 'gemini_api_error' ? (
+              <>
+                <span className="font-semibold text-amber-950">Atención: Google Gemini devolvió un error de conexión.</span>{' '}
+                {fallbackDetails ? (
+                  <span>Detalle: <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">{fallbackDetails}</code>. </span>
+                ) : null}
+                Verifica que tu clave en Google AI Studio esté activa y no tenga restricciones de IP o cuota excedida.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-amber-950">Aviso: La función del servidor en Vercel aún no detecta GEMINI_API_KEY.</span>{' '}
+                Para que Vercel cargue la variable: 1) En <strong>Settings &gt; Environment Variables</strong> agrega tanto <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">GEMINI_API_KEY</code> como <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">VITE_GEMINI_API_KEY</code>. 2) En <strong>Deployments &gt; Redeploy</strong> desmarca la casilla <em>"Use existing Build Cache"</em> para forzar una recarga limpia.
+              </>
+            )}
           </div>
           <button 
             onClick={() => setDismissFallbackNotice(true)}

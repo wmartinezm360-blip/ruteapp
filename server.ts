@@ -615,10 +615,10 @@ ${context || 'No hay contexto adicional.'}`;
     const maxRetries = 2;
     let delay = 800;
 
-    // Use fast gemini-3.8-flash for near-instant responses
-    while (true) {
+    const modelCandidates = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash'];
+    while (attempts < modelCandidates.length) {
+      const modelName = modelCandidates[attempts];
       try {
-        const modelName = attempts === 0 ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.75,

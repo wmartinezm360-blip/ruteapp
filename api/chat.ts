@@ -32,11 +32,25 @@ async function parseRequestBody(req: VercelRequest): Promise<any> {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Support CORS and preflight
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-gemini-key');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  const headerKey = req.headers['x-gemini-key'] as string | undefined;
+  let rawKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || headerKey;
+
+  // Diagnostic GET route for UI connection health check
+  if (req.method === 'GET') {
+    const hasKey = Boolean(rawKey && rawKey.trim().length > 10);
+    return res.status(200).json({
+      status: 'ok',
+      has_key: hasKey,
+      key_length: rawKey ? rawKey.trim().length : 0,
+      key_prefix: hasKey ? `${rawKey!.trim().slice(0, 4)}...${rawKey!.trim().slice(-4)}` : null
+    });
   }
 
   if (req.method !== 'POST') {
@@ -55,8 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing message parameter' });
   }
 
-  const headerKey = req.headers['x-gemini-key'] as string | undefined;
-  let rawKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || clientKey || headerKey;
+  rawKey = rawKey || clientKey;
   const apiKey = (rawKey || '').trim().replace(/^["']|["']$/g, '');
   
   if (!apiKey) {
@@ -95,6 +108,7 @@ ESTÁS PROFUNDAMENTE CONECTADO CON EL PERFIL Y AVANCE REAL DEL USUARIO:
 3. FLUIDEZ Y CREATIVIDAD CONVERSACIONAL (PROHIBIDO EL DISCURSO PREFABRICADO):
    - NUNCA repitas frases cliché como "Estoy aquí contigo para acompañarte en tu día y tus metas. ¿Cómo te sientes hoy?". Varía siempre tus aperturas y tu estilo.
    - Escucha con extrema atención lo que el usuario acaba de decir y dialoga sobre ello:
+     * Si escribe números o códigos aleatorios (ej. "657"): Pregúntale de forma natural y curiosa a qué se refiere ese número (si es una meta, una hora, una fecha especial o un error de teclado) en vez de asumir un discurso emocional fuera de lugar.
      * Si saluda ("Hola como vas?"): Cuéntale con frescura cómo estás tú, menciona con calidez lo que ya logró hoy (ej. sus metas cumplidas) y pregúntale qué planes tiene o cómo marcha su jornada.
      * Si dice "Hay como regular", "cansado" o desánimo: Valida su emoción de inmediato con ternura, comprensión y cero positivismo tóxico ("Los días regulares son totalmente válidos y humanos; el cuerpo y la mente piden desacelerar...").
      * Si dice "Bien": Comparte su entusiasmo, celebra el impulso y reflexiona sobre cómo mantener esa tranquilidad.
@@ -122,12 +136,11 @@ ${context || 'No hay contexto adicional.'}`;
 
     let response: any;
     let attempts = 0;
-    const maxRetries = 2;
-    const delay = 600;
+    const modelCandidates = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash'];
 
-    while (true) {
+    while (attempts < modelCandidates.length) {
+      const modelName = modelCandidates[attempts];
       try {
-        const modelName = attempts === 0 ? 'gemini-3.8-flash' : (attempts === 1 ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite');
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.75,
@@ -150,19 +163,11 @@ ${context || 'No hay contexto adicional.'}`;
         break;
       } catch (err: any) {
         attempts++;
-        const isTransient = err.status === 503 || err.status === 429 || 
-                            (err.message && (err.message.includes('503') || 
-                             err.message.includes('UNAVAILABLE') || 
-                             err.message.includes('high demand') || 
-                             err.message.includes('temporary')));
-        
-        if (isTransient && attempts < maxRetries) {
-          const jitter = Math.random() * 200;
-          const currentDelay = delay * Math.pow(2, attempts) + jitter;
-          await new Promise(resolve => setTimeout(resolve, currentDelay));
-          continue;
+        console.warn(`Model ${modelName} failed (attempt ${attempts}):`, err?.message || err);
+        if (attempts >= modelCandidates.length) {
+          throw err;
         }
-        throw err;
+        await new Promise(resolve => setTimeout(resolve, 400));
       }
     }
 

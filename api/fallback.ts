@@ -278,6 +278,24 @@ export function generateSmartFallbackResponse(
     };
   }
 
+  // Pure numbers (e.g. "657", "123")
+  if (/^\s*\d+([\s,.-]\d+)*\s*$/.test(message.trim())) {
+    return {
+      text: `Veo que escribiste "${message.trim()}". ¿Es algún dato, hora, porcentaje o meta que tengas en mente, o fue un mensaje accidental? Cuéntame con un poco más de detalle para poder acompañarte de la mejor forma.`,
+      risk_flag: false
+    };
+  }
+
+  // Short test or random keyboard press (e.g. "test", "prueba", "asdf", "...", "???")
+  const isShortOrTest = /^(test|prueba|probando|asdf|qwerty|zzz|\?+|\.+|!+)$/i.test(normalized) ||
+    message.trim().length <= 3;
+  if (isShortOrTest) {
+    return {
+      text: `Te leo con total atención. Escribiste "${message.trim()}". Cuéntame qué traes en mente o sobre qué te gustaría reflexionar hoy; estoy aquí para conversar contigo.`,
+      risk_flag: false
+    };
+  }
+
   const variedSynthesis = [
     `Te escucho con calma. Cada palabra y vivencia que compartes es importante y la tomo muy en cuenta. En este proceso de construir bienestar, lo primordial es validar lo que pasa por tu mente sin exigirte respuestas perfectas. ${allCompleted ? `Tus metas de hoy (${completedText}) ya son un ancla ganada a tu favor.` : ''} ¿Qué es lo que más tranquilidad te aportaría en este instante?`,
     `Comprendo el punto al que te refieres. A veces procesar lo que nos ocurre en el día a día toma tiempo y requiere bajar el ritmo. Recuerda que la clave de tus avances está en la amabilidad contigo mismo/a. ¿Cómo sientes tu cuerpo y tus emociones mientras me cuentas esto?`,
