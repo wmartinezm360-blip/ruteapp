@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Markdown from 'react-markdown';
-import { LifeBuoy, Send, Bot, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
+import { LifeBuoy, Send, Bot, User as UserIcon, Loader2, Sparkles, AlertCircle, X } from 'lucide-react';
 import botAvatar from '../public/Avatar.png';
 import { auth } from '../../lib/firebase';
 import { getGoals, getActivityLogs, getMoodLogs } from '../../lib/firestoreService';
@@ -25,6 +25,8 @@ export default function ChatView() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [isFallbackMode, setIsFallbackMode] = useState(false);
+  const [dismissFallbackNotice, setDismissFallbackNotice] = useState(false);
   
   // Real user goals and profiling state
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -202,6 +204,11 @@ export default function ChatView() {
       // If backend was unreachable or returned empty, generate contextual smart response locally
       if (!data || !data.text) {
         data = generateSmartFallbackResponse(userMessage.text, history, realContext);
+        setIsFallbackMode(true);
+      } else if ((data as any).is_fallback || (data as any).reason === 'missing_gemini_api_key') {
+        setIsFallbackMode(true);
+      } else {
+        setIsFallbackMode(false);
       }
 
       if (data.risk_flag) {
@@ -215,6 +222,7 @@ export default function ChatView() {
       }]);
     } catch (error: any) {
       console.error('Chat error:', error);
+      setIsFallbackMode(true);
       // Even in catch-all, deliver thoughtful personalized response
       const fallback = generateSmartFallbackResponse(userMessage.text, messages.map(m => ({ role: m.role, text: m.text })), '');
       setMessages(prev => [...prev, {
@@ -241,13 +249,17 @@ export default function ChatView() {
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <h2 className="text-sm sm:text-base font-bold text-stone-900">Asistente de Bienestar</h2>
-              <span className="inline-flex items-center gap-1 text-3xs sm:text-2xs px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-medium">
-                <Sparkles className="w-2.5 h-2.5 text-amber-600" />
-                Personalizado
+              <span className={`inline-flex items-center gap-1 text-3xs sm:text-2xs px-1.5 sm:px-2 py-0.5 rounded-full font-medium ${
+                isFallbackMode 
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              }`}>
+                <Sparkles className={`w-2.5 h-2.5 ${isFallbackMode ? 'text-amber-700' : 'text-emerald-600'}`} />
+                {isFallbackMode ? 'Modo de Respaldo' : 'Gemini AI Conectado'}
               </span>
             </div>
             <p className="text-2xs sm:text-xs text-stone-500 line-clamp-1">
-              Conectado con tus metas reales y tu perfil motivacional.
+              {isFallbackMode ? 'Para activar respuestas profundas, configura GEMINI_API_KEY en Vercel.' : 'Conectado con tus metas reales y tu perfil motivacional.'}
             </p>
           </div>
         </div>
@@ -260,6 +272,23 @@ export default function ChatView() {
           <LifeBuoy size={20} />
         </button>
       </div>
+
+      {isFallbackMode && !dismissFallbackNotice && (
+        <div className="bg-amber-50 border-b border-amber-200 p-2.5 sm:p-3 flex items-start gap-2.5 text-xs text-amber-900">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-2xs sm:text-xs leading-relaxed">
+            <span className="font-semibold text-amber-950">Aviso: Gemini AI no está activo en este despliegue de Vercel.</span>{' '}
+            El asistente está respondiendo con plantillas de respaldo básicas porque falta la variable de entorno <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">GEMINI_API_KEY</code> en tu panel de Vercel (<em>Project Settings &gt; Environment Variables</em>).
+          </div>
+          <button 
+            onClick={() => setDismissFallbackNotice(true)}
+            className="text-amber-600 hover:text-amber-800 p-0.5 shrink-0"
+            title="Ocultar aviso"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {hasError && (
         <div className="bg-rose-50 border-b border-rose-100 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">

@@ -262,7 +262,28 @@ export function generateSmartFallbackResponse(
     };
   }
 
-  // Intent E: Asking for ideas, habits or strategies ("que hago", "como hago", "consejo", "ayuda", "recomiendame")
+  // Intent E: Work / Boss / Pressure / Studies
+  const isWorkOrStudy = /(trabaj|jefe|jefa|oficina|empleo|laboral|despido|renuncia|universidad|estudio|parcial|examen|tarea|proyecto|cliente)/i.test(normalized);
+  if (isWorkOrStudy) {
+    const options = [
+      `Lamento mucho que estés cargando con esa presión laboral o de estudio. Las tensiones de trabajo o las exigencias de un jefe a menudo nos hacen dudar de nosotros mismos, pero una mala situación o un mal trato no define tu valor ni tu capacidad. Hoy ya demostraste constancia cumpliendo con tus metas (${completedText || 'de hoy'}). Date permiso de desconectar emocionalmente de ese entorno por el resto del día. ¿Te gustaría desahogarte sobre lo ocurrido o prefieres enfocar tu mente en algo que te brinde paz?`,
+      `Entiendo el peso tan desgastante que generan los momentos difíciles en el trabajo o estudio. Cuando un superior o una entrega nos abruma, nuestro sistema nervioso entra en alerta. Recuerda tu enfoque de pasos pequeños: no tienes que resolver todo hoy. Tu único deber en este momento es cuidarte a ti. ¿Sientes que puedes tomar una pausa de 10 minutos para respirar o tomar algo caliente?`,
+      `Te escucho con total atención. El trabajo o las responsabilidades externas suelen drenar nuestra energía sin piedad. Reconoce que hoy hiciste lo posible y que tus metas personales son para ti, no para complacer a nadie más. ¿Cómo te gustaría proteger tu espacio y tranquilidad esta noche?`
+    ];
+    return { text: options[turnIndex % options.length], risk_flag: false };
+  }
+
+  // Intent F: Self-doubt / Feeling incapable / Mistakes ("no sirvo", "fracaso", "no puedo", "inutil", "error")
+  const isSelfDoubt = /(no sirvo|fracas|inutil|no soy capaz|no puedo|no valgo|hice mal|cometi un error|equivoc|torpe)/i.test(normalized);
+  if (isSelfDoubt) {
+    const options = [
+      `Por favor, respira hondo por un momento y sé compasivo/a contigo. Esas voces internas que dicen "no sirvo" o "fracasé" son producto de la frustración y el dolor del momento, no la verdad sobre quién eres. Equivocarse o tener un mal día es una experiencia humana universal. Fíjate en cómo hoy, a pesar de todo, cumpliste tus metas (${completedText || 'de hoy'}). Eso es constancia real. ¿Qué te dirías a ti mismo si un amigo muy querido te estuviera contando exactamente esto?`,
+      `Comprendo profundamente ese sentimiento tan pesado de desánimo. Cuando nos sentimos señalados o frustrados, tendemos a ser nuestros jueces más duros. No eres un error por haber tenido un tropiezo o un día difícil. Abraza tu vulnerabilidad hoy y no te juzgues. Aquí tienes un espacio sin juicios para expresar todo lo que sientes. ¿Hay algo puntual que te gustaría soltar en este momento?`
+    ];
+    return { text: options[turnIndex % options.length], risk_flag: false };
+  }
+
+  // Intent G: Asking for ideas, habits or strategies ("que hago", "como hago", "consejo", "ayuda", "recomiendame")
   if (normalized.includes('consejo') || normalized.includes('que hago') || normalized.includes('como hago') || normalized.includes('recomiendame') || normalized.includes('estrategia')) {
     if (ctx.profile.approach === 'small_steps') {
       return {
@@ -276,23 +297,27 @@ export function generateSmartFallbackResponse(
     };
   }
 
-  // Default Conversational Synthesis: Empathetic, deep, contextual & non-repetitive
-  const contextualAnchor = allCompleted
-    ? `Teniendo tus metas de hoy ya cumplidas (${completedText}), tienes un terreno ganado enorme.`
-    : ctx.goals.pending.length > 0
-    ? `Teniendo en mente tus metas de hoy (${ctx.goals.pending.map(g => `"${g}"`).join(', ')}), podemos ir a tu propio compás.`
-    : '';
+  // Intent H: Interpersonal / Family / Conflict ("grito", "pelea", "discusion", "pareja", "familia")
+  const isConflict = /(pelea|discusion|grito|me gritaron|conflicto|molesto con|enojad|rabia|tristeza por)/i.test(normalized);
+  if (isConflict) {
+    return {
+      text: `Lamento mucho que hayas tenido que experimentar esa tensión o conflicto. Cuando hay gritos o fricciones, el cuerpo queda cargado de adrenalina y malestar. Recuerda que la forma en que los demás reaccionan dice más de su estado interno que de tu valor como persona. Date un momento para que tu respiración baje y no tomes decisiones apresuradas bajo esa agitación. ¿Te gustaría escribir lo que te dio rabia o tristeza para sacarlo de tu pecho?`,
+      risk_flag: false
+    };
+  }
 
-  const closingQuestions = [
-    `¿Cómo te gustaría que abordemos este momento juntos?`,
-    `¿Qué es lo que más tranquilidad o claridad te aportaría en este instante?`,
-    `Cuéntame un poco más sobre cómo lo estás viviendo hoy, me encantaría entenderte mejor.`
+  // Default Conversational Synthesis: Empathetic, varied across turns, NEVER repeating the same template
+  const variedSynthesis = [
+    `Te escucho con calma. Cada palabra y vivencia que compartes es importante y la tomo muy en cuenta. En este proceso de construir bienestar, lo primordial es validar lo que pasa por tu mente sin exigirte respuestas perfectas. ${allCompleted ? `Tus metas de hoy (${completedText}) ya son un ancla ganada a tu favor.` : ''} ¿Qué es lo que más tranquilidad te aportaría en este instante?`,
+    `Comprendo el punto al que te refieres. A veces procesar lo que nos ocurre en el día a día toma tiempo y requiere bajar el ritmo. Recuerda que la clave de tus avances está en la amabilidad contigo mismo/a. ¿Cómo sientes tu cuerpo y tus emociones mientras me cuentas esto?`,
+    `Tiene mucho sentido lo que me dices. No siempre tenemos que tener todo resuelto ni el camino 100% claro. Darte el espacio de reflexionar y conversar aquí ya es un acto de cuidado personal. ¿Hacia dónde sientes que te gustaría dirigir tu atención el resto del día?`,
+    `Te agradezco por compartir esto conmigo de forma tan abierta. Caminar a tu propio ritmo, respetando lo que sientes hoy, es la base de un cambio duradero. Cuéntame un poco más si deseas profundizar en algún detalle, aquí estoy para acompañarte.`
   ];
 
-  const selectedQuestion = closingQuestions[turnIndex % closingQuestions.length];
+  const selectedSynthesis = variedSynthesis[turnIndex % variedSynthesis.length];
 
   return {
-    text: `Entiendo lo que mencionas. ${contextualAnchor} Tu bienestar se construye paso a paso, respetando tus ritmos y reconociendo cada avance que realizas en la aplicación. ${selectedQuestion}`,
+    text: selectedSynthesis,
     risk_flag: false
   };
 }

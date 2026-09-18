@@ -28,7 +28,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.warn('GEMINI_API_KEY environment variable not detected in Vercel. Using high-intelligence contextual fallback engine.');
     const fallbackResult = generateSmartFallbackResponse(message, history || [], context || '');
     res.setHeader('x-gemini-status', 'fallback_missing_key');
-    return res.status(200).json(fallbackResult);
+    return res.status(200).json({
+      ...fallbackResult,
+      is_fallback: true,
+      reason: 'missing_gemini_api_key'
+    });
   }
 
   try {
