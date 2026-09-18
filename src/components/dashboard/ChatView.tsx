@@ -277,8 +277,8 @@ export default function ChatView() {
         <div className="bg-amber-50 border-b border-amber-200 p-2.5 sm:p-3 flex items-start gap-2.5 text-xs text-amber-900">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1 text-2xs sm:text-xs leading-relaxed">
-            <span className="font-semibold text-amber-950">Aviso: Gemini AI no está activo en este despliegue de Vercel.</span>{' '}
-            El asistente está respondiendo con plantillas de respaldo básicas porque falta la variable de entorno <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">GEMINI_API_KEY</code> en tu panel de Vercel (<em>Project Settings &gt; Environment Variables</em>).
+            <span className="font-semibold text-amber-950">Aviso: La clave de Gemini no está activa en el despliegue actual de Vercel.</span>{' '}
+            Si acabas de agregar <code className="bg-amber-100/90 text-amber-950 px-1 py-0.5 rounded font-mono font-semibold">GEMINI_API_KEY</code> en tu panel de Vercel, debes ir a la pestaña <strong>Deployments</strong>, hacer clic en los tres puntos <strong>(...)</strong> del último despliegue y seleccionar <strong>Redeploy</strong> (o hacer push a GitHub) para que Vercel aplique la variable.
           </div>
           <button 
             onClick={() => setDismissFallbackNotice(true)}

@@ -1,9 +1,36 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI, Type } from '@google/genai';
-import { generateSmartFallbackResponse } from '../src/lib/chatIntelligence';
+import { generateSmartFallbackResponse } from './fallback';
+
+async function parseRequestBody(req: VercelRequest): Promise<any> {
+  if (req.body) {
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body);
+      } catch {
+        return {};
+      }
+    }
+    return req.body;
+  }
+  return new Promise((resolve) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(data));
+      } catch {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Support CORS and preflight if needed
+  // Support CORS and preflight
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-gemini-key');
@@ -16,13 +43,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { message, history, context, apiKey: clientKey } = req.body || {};
-  if (!message) {
+  let body: any = {};
+  try {
+    body = await parseRequestBody(req);
+  } catch {
+    body = {};
+  }
+
+  const { message, history, context, apiKey: clientKey } = body || {};
+  if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'Missing message parameter' });
   }
 
   const headerKey = req.headers['x-gemini-key'] as string | undefined;
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || clientKey || headerKey;
+  let rawKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || clientKey || headerKey;
+  const apiKey = (rawKey || '').trim().replace(/^["']|["']$/g, '');
   
   if (!apiKey) {
     console.warn('GEMINI_API_KEY environment variable not detected in Vercel. Using high-intelligence contextual fallback engine.');
@@ -85,14 +120,14 @@ ${context || 'No hay contexto adicional.'}`;
       { role: 'user', parts: [{ text: message }] }
     ];
 
-    let response;
+    let response: any;
     let attempts = 0;
     const maxRetries = 2;
-    const delay = 800;
+    const delay = 600;
 
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
+        const modelName = attempts === 0 ? 'gemini-3.8-flash' : (attempts === 1 ? 'gemini-2.5-flash' : 'gemini-3.1-flash-lite');
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.75,
@@ -137,14 +172,25 @@ ${context || 'No hay contexto adicional.'}`;
       if (!output.text || typeof output.text !== 'string') {
         throw new Error('Invalid response format');
       }
-      return res.status(200).json(output);
-    } catch (parseErr) {
+      return res.status(200).json({
+        ...output,
+        is_fallback: false
+      });
+    } catch {
       const fallbackResult = generateSmartFallbackResponse(message, history || [], context || '');
-      return res.status(200).json(fallbackResult);
+      return res.status(200).json({
+        ...fallbackResult,
+        is_fallback: false
+      });
     }
   } catch (err: any) {
     console.error('Vercel api/chat error, falling back to smart contextual engine:', err?.message || err);
     const fallbackResult = generateSmartFallbackResponse(message, history || [], context || '');
-    return res.status(200).json(fallbackResult);
+    return res.status(200).json({
+      ...fallbackResult,
+      is_fallback: true,
+      reason: 'gemini_api_error',
+      details: err?.message || 'Error executing Gemini model'
+    });
   }
 }
