@@ -332,27 +332,65 @@ export async function exportReportData(periodStart: number, periodEnd: number, u
   // Fetch goals
   const goals = await getGoals();
 
-  // Fetch activity logs within range
-  const logsQ = query(
-    collection(db, 'activity_logs'),
-    where('uid', '==', user.uid),
-    where('timestamp', '>=', periodStart),
-    where('timestamp', '<=', periodEnd)
-  );
-  const logsSnap = await getDocs(logsQ);
-  const activityLogs = logsSnap.docs.map(d => d.data());
+  // Fetch activity logs by user UID without composite index requirement
+  let rawLogs: any[] = [];
+  try {
+    const logsQ = query(
+      collection(db, 'activity_logs'),
+      where('uid', '==', user.uid)
+    );
+    const logsSnap = await getDocs(logsQ);
+    rawLogs = logsSnap.docs.map(d => d.data());
+  } catch (err) {
+    console.warn('Error fetching activity_logs:', err);
+  }
 
-  // Fetch risk events if consented
+  // Filter in memory for requested period
+  const activityLogs = rawLogs.filter(d => {
+    const ts = typeof d.timestamp === 'number'
+      ? d.timestamp
+      : (d.date ? new Date(`${d.date}T12:00:00`).getTime() : 0);
+    return ts >= periodStart && ts <= periodEnd;
+  });
+
+  // Also incorporate mood logs within the range into the report metrics
+  try {
+    const moodLogs = await getMoodLogs(200);
+    const inRangeMoods = moodLogs.filter((m: any) => {
+      const ts = typeof m.timestamp === 'number'
+        ? m.timestamp
+        : (m.date ? new Date(`${m.date}T12:00:00`).getTime() : 0);
+      return ts >= periodStart && ts <= periodEnd;
+    });
+
+    for (const m of inRangeMoods) {
+      activityLogs.push({
+        timestamp: typeof m.timestamp === 'number' ? m.timestamp : new Date(`${m.date}T12:00:00`).getTime(),
+        moodValue: m.mood || (m.score ? `Nivel ${m.score}` : undefined),
+        date: m.date,
+        type: 'mood'
+      });
+    }
+  } catch (err) {
+    console.warn('Could not incorporate mood logs into export:', err);
+  }
+
+  // Fetch risk events if consented without composite index requirement
   let riskEvents: Array<{ timestamp: number }> = [];
   if (userConsented) {
-    const riskQ = query(
-      collection(db, 'risk_events'),
-      where('uid', '==', user.uid),
-      where('timestamp', '>=', periodStart),
-      where('timestamp', '<=', periodEnd)
-    );
-    const riskSnap = await getDocs(riskQ);
-    riskEvents = riskSnap.docs.map(d => ({ timestamp: d.data().timestamp })).sort((a, b) => a.timestamp - b.timestamp);
+    try {
+      const riskQ = query(
+        collection(db, 'risk_events'),
+        where('uid', '==', user.uid)
+      );
+      const riskSnap = await getDocs(riskQ);
+      riskEvents = riskSnap.docs
+        .map(d => ({ timestamp: d.data().timestamp }))
+        .filter(item => typeof item.timestamp === 'number' && item.timestamp >= periodStart && item.timestamp <= periodEnd)
+        .sort((a, b) => a.timestamp - b.timestamp);
+    } catch (err) {
+      console.warn('Error fetching risk_events for report:', err);
+    }
   }
 
   // Append-only audit record in report_exports

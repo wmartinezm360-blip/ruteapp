@@ -214,3 +214,116 @@ export const SOCIAL_INTELLIGENCE_PRACTICES: SocialIntelligenceTip[] = [
     actionableStep: 'Pídele a un amigo, familiar o pareja compartir un espacio de lectura o trabajo en silencio, o realiza una caminata en un parque concurrido observando la vida cotidiana.'
   }
 ];
+
+export interface EmergencyHelpline {
+  country: string;
+  flag: string;
+  name: string;
+  phone: string;
+  hours: string;
+  notes: string;
+}
+
+export const EMERGENCY_HELPLINES: EmergencyHelpline[] = [
+  {
+    country: 'España',
+    flag: '🇪🇸',
+    name: 'Línea de Atención a la Conducta Suicida',
+    phone: '024',
+    hours: '24 horas / 365 días (Gratuito)',
+    notes: 'Atención psicológica inmediata y confidencial del Ministerio de Sanidad. También disponible Teléfono de la Esperanza: 717 003 717.'
+  },
+  {
+    country: 'México',
+    flag: '🇲🇽',
+    name: 'Línea de la Vida',
+    phone: '800 911 2000',
+    hours: '24 horas / 365 días (Gratuito)',
+    notes: 'Atención especializada en crisis emocional y salud mental de CONASAMA. SAPTEL: 55 5259 8121.'
+  },
+  {
+    country: 'Colombia',
+    flag: '🇨🇴',
+    name: 'Línea 106 de Ayuda Psicológica',
+    phone: '106',
+    hours: '24 horas / 7 días (Gratuito)',
+    notes: 'Línea de acompañamiento psicosocial y prevención del riesgo. En Bogotá y ámbito nacional: Línea 192 opción 4.'
+  },
+  {
+    country: 'Argentina',
+    flag: '🇦🇷',
+    name: 'Centro de Asistencia al Suicida',
+    phone: '135 o (011) 5275-1135',
+    hours: 'Atención gratuita desde CABA y GBA',
+    notes: 'Apoyo y contención en crisis emocional. Para todo el país: (011) 5275-1135.'
+  },
+  {
+    country: 'Chile',
+    flag: '🇨🇱',
+    name: 'Línea de Prevención *4141',
+    phone: '*4141',
+    hours: '24 horas / 7 días (Gratuito)',
+    notes: 'Línea oficial del Ministerio de Salud (Minsal). Salud Responde: 600 360 7777.'
+  },
+  {
+    country: 'Estados Unidos / Internacional',
+    flag: '🇺🇸 🌐',
+    name: 'Suicide & Crisis Lifeline',
+    phone: '988',
+    hours: '24/7 (Llama o envía texto, opción en Español)',
+    notes: 'Para otros países o asistencia global en línea, visita befrienders.org o findahelpline.com.'
+  }
+];
+
+export interface CognitiveDistortion {
+  id: string;
+  name: string;
+  description: string;
+  example: string;
+  counterQuestion: string;
+}
+
+export const COGNITIVE_DISTORTIONS: CognitiveDistortion[] = [
+  {
+    id: 'filtro-mental',
+    name: 'Filtro Mental Negativo',
+    description: 'Enfocarse exclusivamente en un detalle negativo e ignorar todo lo positivo del día.',
+    example: '"Cometí un error en un mensaje, todo mi día fue un desastre."',
+    counterQuestion: '¿Qué hechos neutros o favorables ocurrieron hoy que estoy pasando por alto?'
+  },
+  {
+    id: 'todo-o-nada',
+    name: 'Pensamiento Todo o Nada (Dicotómico)',
+    description: 'Ver las situaciones en categorías blanco o negro, sin términos medios ni matices.',
+    example: '"Si no puedo completar todas mis metas hoy, soy un fracaso total."',
+    counterQuestion: '¿Existe un porcentaje intermedio válido? ¿Haber hecho un 30% cuenta como avance?'
+  },
+  {
+    id: 'lectura-de-mente',
+    name: 'Lectura de Pensamiento',
+    description: 'Asumir con certeza lo que los demás piensan de ti, casi siempre de forma negativa.',
+    example: '"Seguro piensan que soy aburrido y que solo soy una molestia."',
+    counterQuestion: '¿Tengo pruebas reales de que eso piensan o estoy proyectando mi propia inseguridad?'
+  },
+  {
+    id: 'catastrofizacion',
+    name: 'Catastrofización (Adivinación del Futuro)',
+    description: 'Esperar siempre el peor desenlace posible sin considerar probabilidades intermedias.',
+    example: '"Si no me recupero hoy, mi semana entera se arruinará y perderé el control."',
+    counterQuestion: '¿Cuál es el escenario más realista y qué recursos tengo para manejarlo paso a paso?'
+  },
+  {
+    id: 'personalizacion',
+    name: 'Personalización',
+    description: 'Culparse a uno mismo por hechos de los cuales no somos enteramente responsables.',
+    example: '"La reunión estuvo tensa por mi culpa, no debí intervenir."',
+    counterQuestion: '¿Qué otros factores externos o estados anímicos de las otras personas influyeron?'
+  },
+  {
+    id: 'deberias',
+    name: 'Los "Debería" Rígidos',
+    description: 'Exigencias inflexibles sobre cómo debemos sentirnos o rendir siempre al 100%.',
+    example: '"Debería estar feliz y enérgico, no tengo derecho a estar desanimado."',
+    counterQuestion: '¿Qué le diría a un buen amigo si tuviera un día con poca energía mental?'
+  }
+];

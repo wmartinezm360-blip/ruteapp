@@ -1,5 +1,6 @@
 import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import { APP_LOGO_BASE64 } from '../assets/logoBase64';
 
 // Initialize virtual fonts for browser-side pdfmake
 // Support both ES module and CommonJS font bundle structures
@@ -186,21 +187,39 @@ export function generateReportPDF(params: ExportReportDataParams) {
       fontSize: 10,
       color: '#292524'
     },
+    images: {
+      appLogo: APP_LOGO_BASE64
+    },
     content: [
-      // Encabezado
+      // Encabezado con Logo Corporativo
       {
         columns: [
-          { text: 'RUTA — INFORME DE SEGUIMIENTO CONDUCTUAL', fontSize: 13, bold: true, color: '#1c1917' },
           {
+            image: 'appLogo',
+            width: 44,
+            height: 44
+          },
+          {
+            width: '*',
+            margin: [12, 3, 0, 0],
+            stack: [
+              { text: 'RUTA — INFORME DE SEGUIMIENTO CONDUCTUAL', fontSize: 13, bold: true, color: '#1c1917' },
+              { text: 'Registro personal de hábitos, adherencia y bienestar emocional', fontSize: 8.5, color: '#78716c', margin: [0, 2, 0, 0] }
+            ]
+          },
+          {
+            width: 'auto',
+            margin: [0, 4, 0, 0],
             text: [
               { text: 'Generado: ', bold: true }, `${formatDate(Date.now())}\n`,
               { text: 'Periodo: ', bold: true }, `${formatDate(periodStart)} — ${formatDate(periodEnd)}`
             ],
             alignment: 'right',
-            fontSize: 9
+            fontSize: 9,
+            color: '#44403c'
           }
         ],
-        margin: [0, 0, 0, 15]
+        margin: [0, 0, 0, 16]
       },
 
       // Nota fija inmodificable

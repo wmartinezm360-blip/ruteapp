@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Download, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Download, FileText, AlertCircle } from 'lucide-react';
 import { decryptUserProfile } from '../../lib/profile';
 import { generateReportPDF } from '../../lib/pdfReportGenerator';
 import { auth } from '../../lib/firebase';
@@ -19,6 +19,19 @@ export default function ExportReportModal({ isOpen, onClose, uid }: ExportReport
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Default dates when opening modal (last 30 days up to today)
+  useEffect(() => {
+    if (isOpen) {
+      const now = new Date();
+      const endStr = now.toISOString().split('T')[0];
+      const startD = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const startStr = startD.toISOString().split('T')[0];
+      if (!periodStart) setPeriodStart(startStr);
+      if (!periodEnd) setPeriodEnd(endStr);
+      setErrorMsg('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleExport = async () => {
@@ -27,8 +40,12 @@ export default function ExportReportModal({ isOpen, onClose, uid }: ExportReport
       return;
     }
     
-    const startTs = new Date(periodStart).getTime();
-    const endTs = new Date(periodEnd).getTime();
+    // Parse start of start day (00:00:00.000) and end of end day (23:59:59.999)
+    const [sY, sM, sD] = periodStart.split('-').map(Number);
+    const startTs = new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime();
+
+    const [eY, eM, eD] = periodEnd.split('-').map(Number);
+    const endTs = new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime();
 
     if (startTs > endTs) {
       setErrorMsg('La fecha de inicio no puede ser posterior a la fecha de fin.');
@@ -48,8 +65,12 @@ export default function ExportReportModal({ isOpen, onClose, uid }: ExportReport
       let profileAnswers: Record<string, string> = {};
       try {
         profileAnswers = await decryptUserProfile(uid, pin);
-      } catch (err) {
-        throw new Error('PIN incorrecto. Por favor, intenta de nuevo.');
+      } catch (err: any) {
+        if (err.message && err.message.toLowerCase().includes('pin')) {
+          throw new Error('PIN incorrecto. Por favor, verifica tus 6 dígitos.');
+        } else {
+          console.warn('Profile answers not available for report:', err);
+        }
       }
 
       // 2. Obtener únicamente los registros no sensibles de telemetría y registrar auditoría directo de Firestore
@@ -72,7 +93,8 @@ export default function ExportReportModal({ isOpen, onClose, uid }: ExportReport
       
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error al generar el informe');
+      console.error('Error during report generation:', err);
+      setErrorMsg(err.message || 'Error al generar el informe en PDF.');
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +167,12 @@ export default function ExportReportModal({ isOpen, onClose, uid }: ExportReport
             </label>
           </div>
 
-          {errorMsg && <p className="text-sm text-red-600 font-medium">{errorMsg}</p>}
+          {errorMsg && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-start gap-2.5 break-words">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <span className="leading-relaxed font-medium">{errorMsg}</span>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-stone-100">
             <button 

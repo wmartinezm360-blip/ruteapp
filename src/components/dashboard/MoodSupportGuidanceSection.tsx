@@ -14,7 +14,11 @@ import {
   Compass, 
   Info,
   ShieldCheck,
-  Search
+  Search,
+  Phone,
+  ShieldAlert,
+  PenTool,
+  LifeBuoy
 } from 'lucide-react';
 import { MoodLog } from '../../types';
 import { 
@@ -25,6 +29,9 @@ import {
   VideoReview 
 } from '../../data/moodSupportResources';
 import { auth } from '../../lib/firebase';
+import EmergencyHelplinesModal from './EmergencyHelplinesModal';
+import CognitiveRestructuringExercise from './CognitiveRestructuringExercise';
+import VitaminPersonExercise from './VitaminPersonExercise';
 
 interface MoodSupportGuidanceSectionProps {
   logs: MoodLog[];
@@ -43,12 +50,13 @@ export default function MoodSupportGuidanceSection({
   insights,
   isLowMoodDetected
 }: MoodSupportGuidanceSectionProps) {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'social' | 'books' | 'videos'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'social' | 'books' | 'videos' | 'exercises'>('all');
   const [selectedVideo, setSelectedVideo] = useState<VideoReview | null>(null);
   const [aiGuidance, setAiGuidance] = useState<any | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const [copiedTipId, setCopiedTipId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showHelplinesModal, setShowHelplinesModal] = useState(false);
 
   const handleCopyPhrase = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -149,23 +157,33 @@ export default function MoodSupportGuidanceSection({
             </p>
           </div>
 
-          <button
-            onClick={handleGenerateAiGuidance}
-            disabled={isLoadingAi}
-            className="px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shrink-0 shadow-xs transition-all hover:shadow-md disabled:opacity-70 self-start md:self-center"
-          >
-            {isLoadingAi ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-                <span>Analizando patrones...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>{aiGuidance ? 'Actualizar Análisis IA' : 'Generar Análisis Personalizado'}</span>
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-center shrink-0">
+            <button
+              onClick={() => setShowHelplinesModal(true)}
+              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <LifeBuoy className="w-4 h-4 text-rose-600" />
+              <span>Líneas de Ayuda (24/7)</span>
+            </button>
+
+            <button
+              onClick={handleGenerateAiGuidance}
+              disabled={isLoadingAi}
+              className="px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-all hover:shadow-md disabled:opacity-70"
+            >
+              {isLoadingAi ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                  <span>Analizando patrones...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>{aiGuidance ? 'Actualizar Análisis IA' : 'Generar Análisis Personalizado'}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -358,6 +376,17 @@ export default function MoodSupportGuidanceSection({
           >
             <Video className="w-3.5 h-3.5 text-rose-600" />
             <span>Videos de YouTube ({CURATED_YOUTUBE_REVIEWS.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveFilter('exercises')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              activeFilter === 'exercises' 
+                ? 'bg-stone-900 text-white' 
+                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            }`}
+          >
+            <PenTool className="w-3.5 h-3.5 text-purple-600" />
+            <span>Ejercicios Prácticos (2)</span>
           </button>
         </div>
 
@@ -623,6 +652,37 @@ export default function MoodSupportGuidanceSection({
           </div>
         </div>
       )}
+
+      {/* SECTION 4: INTERACTIVE PRACTICAL EXERCISES */}
+      {(activeFilter === 'all' || activeFilter === 'exercises') && (
+        <div className="space-y-6 pt-2">
+          <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded-lg bg-purple-100 text-purple-800">
+                <PenTool className="w-4 h-4" />
+              </span>
+              <h4 className="text-base font-bold text-stone-900">
+                Herramientas Prácticas Interactivas
+              </h4>
+            </div>
+            <span className="text-2xs text-stone-500 font-medium">
+              Ejercicios guiados de aplicación inmediata
+            </span>
+          </div>
+
+          {/* Exercise 1: Cognitive Restructuring */}
+          <CognitiveRestructuringExercise />
+
+          {/* Exercise 2: Safe Vitamin Person Circle */}
+          <VitaminPersonExercise />
+        </div>
+      )}
+
+      {/* EMERGENCY HELPLINES MODAL */}
+      <EmergencyHelplinesModal
+        isOpen={showHelplinesModal}
+        onClose={() => setShowHelplinesModal(false)}
+      />
 
       {/* YOUTUBE EMBED MODAL */}
       {selectedVideo && (
