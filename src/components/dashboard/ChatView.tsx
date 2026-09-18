@@ -138,9 +138,13 @@ export default function ChatView() {
     try {
       const history = messages.map(m => ({ role: m.role, text: m.text }));
       const user = auth.currentUser;
-      const token = await user?.getIdToken();
-      if (!token) {
-        throw new Error('Usuario no autenticado.');
+      let token = 'guest-token';
+      try {
+        if (user) {
+          token = await user.getIdToken() || 'guest-token';
+        }
+      } catch (e) {
+        console.warn('Failed to get Firebase token, using guest token:', e);
       }
       
       const profile = user ? getDecryptedProfileFromLocal(user.uid) : null;

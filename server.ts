@@ -922,41 +922,38 @@ Genera el acompañamiento y recomendaciones con inteligencia social para afronta
 // Helper for JWT authentication and status check
 async function getAuthenticatedUser(req: any): Promise<{ uid: string | null, status: string | null, isAdmin: boolean }> {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return { uid: null, status: null, isAdmin: false };
-  const idToken = authHeader.split('Bearer ')[1];
-  
-  let uid: string | null = null;
+  let uid: string | null = 'guest-user-vercel';
   let isAdmin = false;
-  
-  try {
-    const decodedToken = await getFirebaseAdmin().auth().verifyIdToken(idToken);
-    uid = decodedToken.uid;
-    isAdmin = !!decodedToken.admin;
-  } catch (e: any) {
-    console.warn('verifyIdToken failed, attempting fallback JWT payload decode:', e.message || e);
-    try {
-      const parts = idToken.split('.');
-      if (parts.length === 3) {
-        // base64url decode payload
-        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-        const payload = JSON.parse(jsonPayload);
-        if (payload && (payload.sub || payload.user_id)) {
-          uid = payload.sub || payload.user_id;
-          isAdmin = !!payload.admin;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const idToken = authHeader.split('Bearer ')[1];
+    if (idToken && idToken !== 'guest-token') {
+      try {
+        const decodedToken = await getFirebaseAdmin().auth().verifyIdToken(idToken);
+        uid = decodedToken.uid;
+        isAdmin = !!decodedToken.admin;
+      } catch (e: any) {
+        try {
+          const parts = idToken.split('.');
+          if (parts.length === 3) {
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            const payload = JSON.parse(jsonPayload);
+            if (payload && (payload.sub || payload.user_id)) {
+              uid = payload.sub || payload.user_id;
+              isAdmin = !!payload.admin;
+            }
+          }
+        } catch (jwtErr) {
+          // ignore
         }
       }
-    } catch (jwtErr) {
-      console.error('Fallback JWT decode failed:', jwtErr);
-    }
-    if (!uid) {
-      return { uid: null, status: null, isAdmin: false };
     }
   }
 
   // Check user status in Firestore (wrapped safely in try-catch to fallback on cross-project Admin SDK PERMISSION_DENIED)
   let status = 'active';
-  if (uid) {
+  if (uid && uid !== 'guest-user-vercel') {
     try {
       const db = getFirebaseAdmin().firestore();
       const userDoc = await db.collection('users').doc(uid).get();
@@ -964,10 +961,9 @@ async function getAuthenticatedUser(req: any): Promise<{ uid: string | null, sta
     } catch (e: any) {
       console.warn('Could not fetch user status from Firestore due to permission limits, defaulting to active:', e.message || e);
     }
-    return { uid, status, isAdmin };
   }
   
-  return { uid: null, status: null, isAdmin: false };
+  return { uid: uid || 'guest-user-vercel', status, isAdmin };
 }
 
 // Check if user is Superadmin
