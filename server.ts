@@ -547,15 +547,20 @@ app.post('/api/chat', async (req, res) => {
     userLimit.count += 1;
   }
 
-  const { message, history, context } = req.body;
+  const { message, history, context } = req.body || {};
   if (!message) return res.status(400).json({ error: 'Missing message parameter' });
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY no está configurada en las variables de entorno de Vercel.' });
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn('GEMINI_API_KEY not found in environment, returning friendly fallback.');
+    return res.status(200).json({ 
+      text: "¡Hola! Para que pueda responder con toda mi capacidad y personalización, asegúrate de tener configurada la variable GEMINI_API_KEY en Vercel. Cuéntame, ¿cómo te sientes hoy?", 
+      risk_flag: false 
+    });
   }
 
   try {
     const ai = new GoogleGenAI({ 
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey,
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
@@ -609,10 +614,10 @@ ${context || 'No hay contexto adicional.'}`;
     const maxRetries = 2;
     let delay = 800;
 
-    // Use fast gemini-3.1-flash-lite for near-instant (1s) responses without deep thinking delay
+    // Use fast gemini-3.8-flash for near-instant responses
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
+        const modelName = attempts === 0 ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.7,
@@ -672,14 +677,19 @@ app.post('/api/daily-motivation', async (req, res) => {
   if (!sessionUid) return res.status(401).json({ error: 'Unauthorized' });
   if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
 
-  const { context, date } = req.body;
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY no está configurada en las variables de entorno de Vercel.' });
+  const { context, date } = req.body || {};
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(200).json({
+      greeting: "¡Hola! Un nuevo día para avanzar a tu ritmo",
+      message: "Cada paso que das cuenta. Recuerda que la constancia y la amabilidad contigo mismo son la clave de cualquier gran camino.",
+      tip: "Elige una pequeña acción de tu meta hoy y cúmplela sin prisa pero con intención."
+    });
   }
 
   try {
     const ai = new GoogleGenAI({ 
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey,
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
@@ -704,7 +714,7 @@ Devuelve un JSON con exactamente:
 
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
+        const modelName = attempts === 0 ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.7,
@@ -754,14 +764,22 @@ app.post('/api/mood-guidance', async (req, res) => {
   if (!sessionUid) return res.status(401).json({ error: 'Unauthorized' });
   if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
 
-  const { logs, todayMood, summary } = req.body;
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY no está configurada en las variables de entorno de Vercel.' });
+  const { logs, todayMood, summary } = req.body || {};
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(200).json({
+      empathicAnalysis: "Reconocer cómo te sientes es el primer paso valiente para cuidar de tu bienestar.",
+      socialIntelligenceInsight: "No tienes que cargar con todo tú solo/a. Compartir tus sentimientos disminuye su peso.",
+      keyAdvice: [{ title: "Valida tus emociones", description: "Permítete sentir sin juzgarte.", actionableStep: "Respira profundo 3 veces." }],
+      bookRecommendation: { title: "El poder de la vulnerabilidad", author: "Brené Brown", review: "Transformador", whyItHelps: "Ayuda a soltar la exigencia", keyExercise: "Agradece algo hoy" },
+      videoRecommendation: { title: "El poder de la vulnerabilidad", speaker: "Brené Brown", channel: "TED", review: "Inspiradora", youtubeSearchQuery: "Brene Brown TED", keyTakeaway: "Vulnerabilidad es conexión" },
+      immediateAction: "Toma un vaso de agua y camina unos pasos."
+    });
   }
 
   try {
     const ai = new GoogleGenAI({ 
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey,
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     });
 
@@ -800,7 +818,7 @@ Genera el acompañamiento y recomendaciones con inteligencia social para afronta
 
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
+        const modelName = attempts === 0 ? 'gemini-3.8-flash' : 'gemini-3.1-flash-lite';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.6,

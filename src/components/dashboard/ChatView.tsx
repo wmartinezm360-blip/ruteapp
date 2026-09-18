@@ -182,7 +182,14 @@ export default function ChatView() {
       });
       clearTimeout(timeoutId);
 
-      if (!response.ok) throw new Error('Error al conectar con el asistente');
+      if (!response.ok) {
+        let errMessage = 'Error al conectar con el asistente';
+        try {
+          const errData = await response.json();
+          if (errData.error) errMessage = errData.error;
+        } catch (_) {}
+        throw new Error(errMessage);
+      }
       
       const data = await response.json();
       
@@ -193,15 +200,20 @@ export default function ChatView() {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: data.text
+        text: data.text || 'Hola, ¿en qué puedo ayudarte hoy?'
       }]);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error('Chat error:', error);
       setHasError(true);
+      const isNetworkOrAbort = error?.name === 'AbortError' || error?.message?.includes('Failed to fetch');
+      const errorMsg = isNetworkOrAbort
+        ? 'El servidor tardó en responder. Por favor, verifica tu conexión e intenta de nuevo.'
+        : (error?.message || 'Lo siento, hubo un problema al procesar tu mensaje. Por favor, inténtalo de nuevo.');
+      
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: 'Lo siento, hubo un problema al procesar tu mensaje. Por favor, inténtalo de nuevo. Si necesitas ayuda inmediata o estás pasando por una crisis, por favor utiliza el botón de asistencia y recursos de emergencia (icono de salvavidas) visible en la parte superior.'
+        text: errorMsg
       }]);
     } finally {
       setIsLoading(false);
