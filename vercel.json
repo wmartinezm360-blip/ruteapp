@@ -1,16 +1,17 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "builds": [
     {
-      "src": "server.ts",
+      "src": "dist/server.cjs",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["dist/**", "firebase-applet-config.json"]
+        "includeFiles": ["firebase-applet-config.json"]
       }
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "server.ts" }
+    { "src": "/(.*)", "dest": "dist/server.cjs" }
   ]
 }

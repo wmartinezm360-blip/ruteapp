@@ -34,10 +34,34 @@ function getFirebaseAdmin() {
       console.error('Error reading firebase-applet-config.json:', e);
     }
 
-    adminApp = initializeApp({
-      credential: applicationDefault(),
-      projectId: projectId || process.env.FIREBASE_PROJECT_ID || 'rute-65a2a'
-    });
+    const resolvedProjectId = projectId || process.env.FIREBASE_PROJECT_ID || 'rute-65a2a';
+
+    try {
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        adminApp = initializeApp({
+          credential: applicationDefault(),
+          projectId: resolvedProjectId
+        });
+      } else {
+        try {
+          adminApp = initializeApp({
+            credential: applicationDefault(),
+            projectId: resolvedProjectId
+          });
+        } catch (adcErr) {
+          console.warn('Application Default Credentials failed, attempting fallback initialization with projectId only:', adcErr);
+          adminApp = initializeApp({
+            projectId: resolvedProjectId
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Fallback initialization, attempting projectId only:', err);
+      adminApp = initializeApp({
+        projectId: resolvedProjectId
+      });
+    }
   }
   return {
     firestore: () => cachedDatabaseId ? getFirestore(adminApp!, cachedDatabaseId) : getFirestore(adminApp!),
