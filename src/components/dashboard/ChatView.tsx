@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import { LifeBuoy, Send, Bot, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
+import botAvatar from '../public/Avatar.png';
 import { auth } from '../../lib/firebase';
 import { getGoals, getActivityLogs, getMoodLogs } from '../../lib/firestoreService';
 import { getDecryptedProfileFromLocal, buildMotivationalContext } from '../../lib/userProfileContext';
@@ -221,22 +222,25 @@ export default function ChatView() {
   };
 
   return (
-    <div className="flex flex-col h-[650px] bg-stone-50 rounded-xl border border-stone-200 overflow-hidden shadow-xs">
+    <div className="flex flex-col h-[calc(100dvh-220px)] min-h-[480px] sm:h-[650px] bg-stone-50 rounded-2xl border border-stone-200 overflow-hidden shadow-xs">
       {/* Header */}
-      <div className="bg-white p-4 border-b border-stone-200 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-stone-900 text-amber-400 flex items-center justify-center shrink-0">
-            <Bot className="w-5 h-5" />
-          </div>
+      <div className="bg-white p-3 sm:p-4 border-b border-stone-200 flex justify-between items-center">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <img 
+            src={botAvatar} 
+            alt="Asistente de Bienestar" 
+            referrerPolicy="no-referrer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover border border-stone-200/80 shadow-2xs shrink-0"
+          />
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-stone-900">Asistente de Bienestar</h2>
-              <span className="inline-flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-medium">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-stone-900">Asistente de Bienestar</h2>
+              <span className="inline-flex items-center gap-1 text-3xs sm:text-2xs px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-medium">
                 <Sparkles className="w-2.5 h-2.5 text-amber-600" />
                 Personalizado
               </span>
             </div>
-            <p className="text-xs text-stone-500">
+            <p className="text-2xs sm:text-xs text-stone-500 line-clamp-1">
               Conectado con tus metas reales y tu perfil motivacional.
             </p>
           </div>
@@ -244,7 +248,7 @@ export default function ChatView() {
 
         <button 
           onClick={() => window.dispatchEvent(new CustomEvent('panic-triggered', { detail: { type: 'manual' } }))}
-          className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+          className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
           title="Recursos de Emergencia"
         >
           <LifeBuoy size={20} />
@@ -252,7 +256,7 @@ export default function ChatView() {
       </div>
 
       {hasError && (
-        <div className="bg-rose-50 border-b border-rose-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-rose-50 border-b border-rose-100 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <p className="text-xs text-rose-800 font-medium">
             Si necesitas ayuda inmediata o estás pasando por una crisis, por favor utiliza el botón de asistencia y recursos de emergencia en pantalla.
           </p>
@@ -266,20 +270,23 @@ export default function ChatView() {
       )}
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {messages.map(msg => (
           <div 
             key={msg.id} 
-            className={`flex items-start gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex items-start gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'model' && (
-              <div className="w-7 h-7 rounded-lg bg-stone-900 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                <Bot className="w-4 h-4" />
-              </div>
+              <img 
+                src={botAvatar} 
+                alt="Asistente" 
+                referrerPolicy="no-referrer"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover border border-stone-200/80 shadow-2xs shrink-0 mt-0.5" 
+              />
             )}
 
             <div 
-              className={`max-w-[82%] p-3.5 rounded-2xl text-sm leading-relaxed ${
+              className={`max-w-[88%] sm:max-w-[82%] p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                 msg.role === 'user' 
                   ? 'bg-stone-900 text-white rounded-br-xs' 
                   : 'bg-white border border-stone-200 text-stone-800 rounded-bl-xs shadow-2xs'
@@ -295,19 +302,22 @@ export default function ChatView() {
             </div>
 
             {msg.role === 'user' && (
-              <div className="w-7 h-7 rounded-lg bg-stone-200 text-stone-700 flex items-center justify-center shrink-0 mt-0.5">
-                <UserIcon className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-stone-200 text-stone-700 flex items-center justify-center shrink-0 mt-0.5">
+                <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             )}
           </div>
         ))}
 
         {isLoading && (
-          <div className="flex items-start gap-2.5 justify-start">
-            <div className="w-7 h-7 rounded-lg bg-stone-900 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-              <Bot className="w-4 h-4" />
-            </div>
-            <div className="bg-white border border-stone-200 text-stone-600 p-3.5 rounded-2xl rounded-bl-xs text-xs flex items-center gap-2 shadow-2xs">
+          <div className="flex items-start gap-2 justify-start">
+            <img 
+              src={botAvatar} 
+              alt="Asistente" 
+              referrerPolicy="no-referrer"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover border border-stone-200/80 shadow-2xs shrink-0 mt-0.5" 
+            />
+            <div className="bg-white border border-stone-200 text-stone-600 p-3 sm:p-3.5 rounded-2xl rounded-bl-xs text-xs flex items-center gap-2 shadow-2xs">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-stone-800" />
               <span>Pensando una respuesta para tus metas...</span>
             </div>
@@ -318,7 +328,7 @@ export default function ChatView() {
       </div>
 
       {/* Input */}
-      <div className="p-3 bg-white border-t border-stone-200">
+      <div className="p-2.5 sm:p-3 bg-white border-t border-stone-200">
         <form 
           onSubmit={(e) => {
             e.preventDefault();
@@ -330,16 +340,16 @@ export default function ChatView() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Escribe tu mensaje sobre tus metas o estado de hoy..."
-            className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-stone-900 focus:bg-white text-stone-900 placeholder:text-stone-400 transition-colors"
+            placeholder="Escribe sobre tus metas o estado de hoy..."
+            className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-stone-900 focus:bg-white text-stone-900 placeholder:text-stone-400 transition-colors"
             disabled={isLoading}
           />
           <button 
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="px-4 py-2.5 bg-stone-900 text-white rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors font-medium flex items-center gap-1.5 text-sm"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 bg-stone-900 text-white rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors font-medium flex items-center justify-center gap-1.5 text-xs sm:text-sm shrink-0"
           >
-            <span>Enviar</span>
+            <span className="hidden sm:inline">Enviar</span>
             <Send size={15} />
           </button>
         </form>

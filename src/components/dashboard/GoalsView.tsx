@@ -95,27 +95,27 @@ export default function GoalsView() {
     const isExpanded = expanded[goal.id];
 
     return (
-      <div key={goal.id} className="mt-2" style={{ marginLeft: depth > 0 ? '1.5rem' : '0' }}>
+      <div key={goal.id} className="mt-2" style={{ marginLeft: depth > 0 ? `${Math.min(depth * 1, 2)}rem` : '0' }}>
         <div 
-          className={`p-3 rounded-lg flex items-center justify-between ${typeColors[goal.type]} shadow-sm transition-all`}
+          className={`p-3 rounded-xl flex items-center justify-between ${typeColors[goal.type]} shadow-2xs transition-all`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {hasChildren ? (
-              <button onClick={() => toggleExpand(goal.id)} className="p-1 hover:bg-black/5 rounded">
+              <button onClick={() => toggleExpand(goal.id)} className="p-1 hover:bg-black/5 rounded shrink-0">
                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </button>
             ) : (
-              <span className="w-6" /> // spacer
+              <span className="w-5 shrink-0" />
             )}
-            <span className="font-medium">{goal.text}</span>
-            <span className="text-xs uppercase tracking-wider opacity-60 ml-2">
+            <span className="font-medium text-xs sm:text-sm truncate">{goal.text}</span>
+            <span className="text-3xs sm:text-2xs uppercase tracking-wider opacity-60 ml-auto shrink-0 font-semibold">
               {typeLabels[goal.type]}
             </span>
           </div>
         </div>
 
         {hasChildren && isExpanded && (
-          <div className="border-l-2 border-stone-200 ml-4 pl-2 mt-2 space-y-2">
+          <div className="border-l-2 border-stone-200 ml-2.5 sm:ml-4 pl-2 mt-2 space-y-2">
             {children.map(child => renderGoalNode(child, depth + 1))}
           </div>
         )}
@@ -128,30 +128,30 @@ export default function GoalsView() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-stone-900">Mis Metas</h2>
-        <p className="text-stone-600">Estructura tus grandes objetivos en pequeños hábitos manejables.</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-stone-900">Mis Metas</h2>
+        <p className="text-stone-500 text-xs sm:text-sm">Estructura tus grandes objetivos en pequeños hábitos manejables.</p>
       </div>
       
-      <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 space-y-4">
-        <h3 className="font-medium text-stone-800 flex items-center gap-2">
-          <Plus size={18} /> Añadir Nueva
+      <div className="bg-stone-50 p-3.5 sm:p-5 rounded-2xl border border-stone-200 space-y-3 sm:space-y-4">
+        <h3 className="font-semibold text-xs sm:text-sm text-stone-800 flex items-center gap-2">
+          <Plus size={16} /> Añadir Nueva Meta o Hábito
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3">
           <input 
             type="text" 
             value={newGoalText}
             onChange={(e) => setNewGoalText(e.target.value)}
             placeholder="Título de la meta o hábito..."
-            className="md:col-span-3 p-2.5 rounded-lg border border-stone-200 focus:outline-none focus:border-stone-400 bg-white"
+            className="md:col-span-3 p-2.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white text-base sm:text-sm"
           />
           
           <select 
             value={newGoalType}
             onChange={(e) => {
               setNewGoalType(e.target.value as GoalType);
-              setNewGoalParentId(''); // Reset parent when type changes
+              setNewGoalParentId('');
             }}
-            className="p-2.5 rounded-lg border border-stone-200 focus:outline-none focus:border-stone-400 bg-white"
+            className="p-2.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white text-xs sm:text-sm"
           >
             <option value="grande">Meta Grande</option>
             <option value="mediana">Meta Mediana</option>
@@ -163,7 +163,7 @@ export default function GoalsView() {
             value={newGoalParentId}
             onChange={(e) => setNewGoalParentId(e.target.value)}
             disabled={validParents.length === 0}
-            className="md:col-span-2 p-2.5 rounded-lg border border-stone-200 focus:outline-none focus:border-stone-400 bg-white disabled:bg-stone-100 disabled:text-stone-400"
+            className="md:col-span-2 p-2.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900 bg-white disabled:bg-stone-100 disabled:text-stone-400 text-xs sm:text-sm"
           >
             <option value="">Sin meta padre (independiente)</option>
             {validParents.map(parent => (
@@ -174,11 +174,11 @@ export default function GoalsView() {
           </select>
         </div>
         
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-1">
           <button 
             onClick={handleAddGoal} 
-            disabled={!newGoalText.trim()}
-            className="px-6 py-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 disabled:opacity-50 transition-colors"
+            disabled={!newGoalText.trim() || isSubmitting}
+            className="w-full sm:w-auto px-5 py-2.5 bg-stone-900 text-white rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors font-medium text-xs sm:text-sm shadow-xs"
           >
             Añadir a la lista
           </button>

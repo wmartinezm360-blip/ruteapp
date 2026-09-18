@@ -73,23 +73,22 @@ export default function SettingsView() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h2 className="text-2xl font-semibold text-stone-900">Ajustes</h2>
-        <p className="text-stone-600">Gestiona tu cuenta y preferencias de privacidad.</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-stone-900">Ajustes</h2>
+        <p className="text-stone-500 text-xs sm:text-sm">Gestiona tu cuenta y preferencias de privacidad.</p>
       </div>
 
-      
-      <div className="bg-white border border-stone-200 rounded-xl p-6">
-        <h3 className="text-lg font-medium text-stone-900 mb-2 flex items-center gap-2">
-          <FileText size={20} /> Exportar Datos
+      <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-6 shadow-2xs">
+        <h3 className="text-base sm:text-lg font-bold text-stone-900 mb-1.5 sm:mb-2 flex items-center gap-2">
+          <FileText size={18} /> Exportar Datos
         </h3>
-        <p className="text-sm text-stone-600 mb-4">
+        <p className="text-xs sm:text-sm text-stone-600 mb-4 leading-relaxed">
           Genera un informe en PDF con tus datos de autorregistro (metas, estado de ánimo) para compartir con tu profesional de la salud mental.
         </p>
         <button
           onClick={() => setShowExportModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors font-medium text-sm"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition-colors font-medium text-xs sm:text-sm shadow-xs"
         >
-          <FileText size={16} /> Generar Informe de Seguimiento
+          <FileText size={15} /> Generar Informe de Seguimiento
         </button>
       </div>
       

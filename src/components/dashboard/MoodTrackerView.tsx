@@ -720,10 +720,10 @@ export default function MoodTrackerView({ onCheckinComplete, initialTab }: MoodT
 
       {/* Tabs & Range Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth whitespace-nowrap pb-1">
           <button
             onClick={() => setActiveTab('charts')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
               activeTab === 'charts' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >
@@ -731,7 +731,7 @@ export default function MoodTrackerView({ onCheckinComplete, initialTab }: MoodT
           </button>
           <button
             onClick={() => setActiveTab('patterns')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
               activeTab === 'patterns' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >
@@ -739,7 +739,7 @@ export default function MoodTrackerView({ onCheckinComplete, initialTab }: MoodT
           </button>
           <button
             onClick={() => setActiveTab('support')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 ${
               activeTab === 'support' 
                 ? 'bg-amber-600 text-white shadow-xs' 
                 : isLowMoodDetected 
@@ -757,7 +757,7 @@ export default function MoodTrackerView({ onCheckinComplete, initialTab }: MoodT
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 ${
               activeTab === 'history' ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
             }`}
           >

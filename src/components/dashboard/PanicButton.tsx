@@ -94,10 +94,10 @@ export default function PanicButton() {
       {/* Botón Discreto Flotante (Global) */}
       <button
         onClick={() => triggerPanic('manual')}
-        className="fixed bottom-4 left-4 p-3 bg-stone-100 text-stone-600 rounded-full shadow-sm border border-stone-200 hover:bg-stone-200 hover:text-stone-900 transition-all z-40 flex items-center gap-2 group"
+        className="fixed bottom-3.5 left-3.5 sm:bottom-6 sm:left-6 p-2.5 sm:p-3 bg-white/95 backdrop-blur-xs text-stone-600 rounded-full shadow-md border border-stone-200 hover:bg-stone-100 hover:text-stone-900 transition-all z-40 flex items-center gap-2 group"
         title="Recursos de Apoyo"
       >
-        <LifeBuoy size={20} />
+        <LifeBuoy size={20} className="shrink-0" />
         <span className="text-xs font-medium max-w-0 overflow-hidden group-hover:max-w-[120px] transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100">
           Ayuda / Emergencia
         </span>
@@ -105,8 +105,8 @@ export default function PanicButton() {
 
       {/* Modal de Emergencia */}
       {isOpen && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3.5 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-4 sm:p-6 shadow-2xl relative max-h-[92dvh] overflow-y-auto">
             <div className="flex flex-col items-center text-center mb-6 mt-2">
               <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mb-4 text-rose-600">
                 <LifeBuoy size={32} />
