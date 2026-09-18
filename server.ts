@@ -549,6 +549,9 @@ app.post('/api/chat', async (req, res) => {
 
   const { message, history, context } = req.body;
   if (!message) return res.status(400).json({ error: 'Missing message parameter' });
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY no está configurada en las variables de entorno de Vercel.' });
+  }
 
   try {
     const ai = new GoogleGenAI({ 
@@ -609,7 +612,7 @@ ${context || 'No hay contexto adicional.'}`;
     // Use fast gemini-3.1-flash-lite for near-instant (1s) responses without deep thinking delay
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+        const modelName = attempts === 0 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.7,
@@ -623,10 +626,6 @@ ${context || 'No hay contexto adicional.'}`;
             required: ["text", "risk_flag"]
           }
         };
-
-        if (modelName === 'gemini-3.8-flash') {
-          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
-        }
 
         response = await ai.models.generateContent({
           model: modelName,
@@ -674,6 +673,9 @@ app.post('/api/daily-motivation', async (req, res) => {
   if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
 
   const { context, date } = req.body;
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY no está configurada en las variables de entorno de Vercel.' });
+  }
 
   try {
     const ai = new GoogleGenAI({ 
@@ -702,7 +704,7 @@ Devuelve un JSON con exactamente:
 
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+        const modelName = attempts === 0 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.7,
@@ -717,10 +719,6 @@ Devuelve un JSON con exactamente:
             required: ["greeting", "message", "tip"]
           }
         };
-
-        if (modelName === 'gemini-3.8-flash') {
-          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
-        }
 
         response = await ai.models.generateContent({
           model: modelName,
@@ -757,6 +755,9 @@ app.post('/api/mood-guidance', async (req, res) => {
   if (status === 'pending_deletion') return res.status(403).json({ error: 'Account is pending deletion and locked.' });
 
   const { logs, todayMood, summary } = req.body;
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY no está configurada en las variables de entorno de Vercel.' });
+  }
 
   try {
     const ai = new GoogleGenAI({ 
@@ -799,7 +800,7 @@ Genera el acompañamiento y recomendaciones con inteligencia social para afronta
 
     while (true) {
       try {
-        const modelName = attempts === 0 ? 'gemini-3.1-flash-lite' : 'gemini-3.8-flash';
+        const modelName = attempts === 0 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
         const modelConfig: any = {
           systemInstruction,
           temperature: 0.6,
@@ -856,10 +857,6 @@ Genera el acompañamiento y recomendaciones con inteligencia social para afronta
             ]
           }
         };
-
-        if (modelName === 'gemini-3.8-flash') {
-          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
-        }
 
         response = await ai.models.generateContent({
           model: modelName,
